@@ -3,11 +3,11 @@ package nvim
 import (
 	"encoding/json"
 	"log"
-	"strings"
 
 	"github.com/dradtke/debug-console/dap"
 )
 
+/*
 func HandleResponse(p *dap.Process, resp dap.Response) {
 	if !resp.Success {
 		handleResponseError(resp.Body)
@@ -35,6 +35,7 @@ func HandleResponse(p *dap.Process, resp dap.Response) {
 		log.Printf("Don't know how to handle response: %s", resp.Command)
 	}
 }
+*/
 
 func HandleEvent(event dap.Event) {
 	switch event.Event {
@@ -60,24 +61,4 @@ func HandleEvent(event dap.Event) {
 	default:
 		log.Printf("Don't know how to handle event: %s", event.Event)
 	}
-}
-
-func handleResponseError(body json.RawMessage) {
-	var errBody struct {
-		Error struct {
-			ID        int               `json:"id"`
-			Format    string            `json:"format"`
-			Variables map[string]string `json:"variables"`
-		} `json:"error"`
-		ShowUser bool `json:"showUser"`
-	}
-	if err := json.Unmarshal(body, &errBody); err != nil {
-		log.Printf("Error parsing error body: %s", err)
-	}
-	msg := errBody.Error.Format
-	for name, value := range errBody.Error.Variables {
-		msg = strings.ReplaceAll(msg, "{"+name+"}", value)
-	}
-	// TODO: if errBody.ShowUser, send a notification to the UI
-	log.Printf("%d: %s", errBody.Error.ID, msg)
 }

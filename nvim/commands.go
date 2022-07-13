@@ -21,7 +21,14 @@ func DebugRun(v *nvim.Nvim, eval *struct {
 	log.Print("Starting debug run")
 	switch eval.Filetype {
 	case "go":
-		Run(eval.Path, dap.GoStart)
+		Run(eval.Path, dap.GoStart, func(p *dap.Process) {
+			log.Print("Go debug adapter initialized, launching")
+			if _, err := dap.GoLaunch(eval.Path, p); err != nil {
+				log.Printf("Error launching Go: %s", err)
+				return
+			}
+			SendConfiguration(p)
+		})
 	default:
 		return fmt.Errorf("unsupported filetype: %s", eval.Filetype)
 	}
@@ -29,36 +36,26 @@ func DebugRun(v *nvim.Nvim, eval *struct {
 }
 
 func ToggleBreakpoint(v *nvim.Nvim) error {
-	const (
-		signGroup = "debug-console-breakpoint"
-		signName = "debug-console-breakpoint"
-	)
-	var lineNum int
-	if err := v.Call("line", &lineNum, "."); err != nil {
-		return fmt.Errorf("failed to call line(): %w", err)
+	lineNum, err := GetLineNumber(v)
+	if err != nil {
+		return fmt.Errorf("ToggleBreakpoint: %w", err)
 	}
 
-	var placedSigns []map[string]any
-	if err := v.Call("sign_getplaced", &placedSigns, "%", map[string]any{
-		"group": "debug-console-breakpoint",
-		"lnum": lineNum,
-	}); err != nil {
-		return fmt.Errorf("failed to call sign_getplaced(): %w", err)
+	sign, err := GetSignAt(v, SignGroupBreakpoint, "%", lineNum)
+	if err != nil {
+		return fmt.Errorf("ToggleBreakpoint: %w", err)
 	}
 
-	placedSignDetails := placedSigns[0]["signs"].([]any) 
-	if len(placedSignDetails) == 0 {
-		log.Println("placing new sign")
-		return v.Call("sign_place", nil, 0, signGroup, signName, "%", map[string]any{
-			"lnum":     lineNum,
-			"priority": 99,
-		})
+	if sign.Exists {
+		if err := RemoveSign(v, sign); err != nil {
+			return fmt.Errorf("ToggleBreakpoint: %w", err)
+		}
 	} else {
-		log.Print("removing sign")
-		existing := placedSignDetails[0].(map[string]any)
-		return v.Call("sign_unplace", nil, signGroup, map[string]any{
-			"buffer": placedSigns[0]["bufnr"],
-			"id": existing["id"],
-		})
+		// ???: What name should be used here?
+		if err := PlaceSign(v, SignNameBreakpoint, sign); err != nil {
+			return fmt.Errorf("ToggleBreakpoint: %w", err)
+		}
 	}
+
+	return nil
 }

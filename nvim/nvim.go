@@ -1,6 +1,7 @@
 package nvim
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -9,43 +10,65 @@ import (
 	"github.com/neovim/go-client/nvim/plugin"
 )
 
+const (
+	SignGroupBreakpoint = "debug-console-breakpoint"
+	SignNameBreakpoint = "debug-console-breakpoint"
+)
+
 var (
 	dapDir string
 )
 
-type StartFunc func(string, dap.Handlers) (*dap.Process, dap.OnInitializedFunc, error)
+type StartFunc func(string, func(dap.Event)) (*dap.Process, error)
 
-func Run(filepath string, start StartFunc) {
+func Run(filepath string, start StartFunc, onInitialized func(*dap.Process)) {
 	if state.Running {
 		log.Print("A debug adapter is already running")
 		return
 	}
 	log.Printf("Starting debug adapter...")
-	p, onInitialized, err := start(dapDir, dap.Handlers{
-		Response: HandleResponse,
-		Event:    HandleEvent,
-	})
+	p, err := start(dapDir, HandleEvent)
 	if err != nil {
 		log.Printf("Failed to start debug adapter process: %s", err)
 	}
+	stateMu.Lock()
 	state = State{
 		Running:       true,
 		Process:       p,
 		Capabilities:  nil,
-		OnInitialized: onInitialized,
 		Filepath:      filepath,
 	}
+	stateMu.Unlock()
 	go func() {
-		if err := state.Process.Wait(); err != nil {
+		if err := p.Wait(); err != nil {
 			log.Printf("Debug adapter exited with error: %s", err)
 		} else {
 			log.Print("Debug adapter exited")
 		}
+		stateMu.Lock()
 		state = State{}
+		stateMu.Unlock()
 	}()
 	log.Printf("Started debug adapter")
 
-	state.Process.Initialize()
+	go func() {
+		resp, err := p.Initialize()
+		if err != nil {
+			log.Printf("Error initializing debug adapter: %s", err)
+			return
+		}
+		state.Capabilities = make(map[string]bool)
+		if err := json.Unmarshal(resp.Body, &state.Capabilities); err != nil {
+			log.Printf("Error parsing capabilities: %s", err)
+		}
+		onInitialized(state.Process)
+	}()
+}
+
+func SendConfiguration(p *dap.Process) {
+	if _, err := p.SendRequest("configurationDone", make(map[string]any)); err != nil {
+		log.Printf("Error finishing configuration: %s", err)
+	}
 }
 
 func setLogOutput() error {

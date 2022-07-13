@@ -1,2 +1,5 @@
 /bin
 Session.vim
+
+# For some reason this is being written by the debug adapter
+debug.test
