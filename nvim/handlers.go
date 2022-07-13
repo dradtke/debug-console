@@ -27,7 +27,7 @@ func HandleResponse(p *dap.Process, resp dap.Response) {
 
 	case "launch":
 		log.Print("Debug adapter launched!")
-		// TODO: set all breakpoints
+		// TODO: find all breakpoint signs, and set them
 		// For now, just send configurationDone
 		p.SendRequest("configurationDone", make(map[string]any))
 

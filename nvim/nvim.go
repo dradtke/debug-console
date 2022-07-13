@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/dradtke/debug-console/dap"
-	"github.com/neovim/go-client/nvim"
 	"github.com/neovim/go-client/nvim/plugin"
 )
 
@@ -49,20 +48,6 @@ func Run(filepath string, start StartFunc) {
 	state.Process.Initialize()
 }
 
-func DebugRun(v *nvim.Nvim, eval *struct {
-	Path     string `eval:"expand('%:p')"`
-	Filetype string `eval:"getbufvar(bufnr('%'), '&filetype')"`
-}) error {
-	log.Print("starting debug run")
-	switch eval.Filetype {
-	case "go":
-		Run(eval.Path, dap.GoStart)
-	default:
-		return fmt.Errorf("unsupported filetype: %s", eval.Filetype)
-	}
-	return nil
-}
-
 func setLogOutput() error {
 	filename := os.Getenv("LOG_FILE")
 	if filename == "" {
@@ -92,10 +77,7 @@ func Main() error {
 	}
 
 	plugin.Main(func(p *plugin.Plugin) error {
-		p.HandleCommand(&plugin.CommandOptions{
-			Name: "DebugRun",
-			Eval: "*",
-		}, DebugRun)
+		RegisterCommands(p)
 		return nil
 	})
 
