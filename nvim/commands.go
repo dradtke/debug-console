@@ -22,12 +22,15 @@ func DebugRun(v *nvim.Nvim, eval *struct {
 	switch eval.Filetype {
 	case "go":
 		Run(eval.Path, dap.GoStart, func(p *dap.Process) {
+			defer HandlePanic()
 			log.Print("Go debug adapter initialized, launching")
 			if _, err := dap.GoLaunch(eval.Path, p); err != nil {
 				log.Printf("Error launching Go: %s", err)
 				return
 			}
-			SendConfiguration(p)
+			if err := SendConfiguration(v, p); err != nil {
+				log.Printf("Error sending configuration: %s", err)
+			}
 		})
 	default:
 		return fmt.Errorf("unsupported filetype: %s", eval.Filetype)

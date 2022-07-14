@@ -5,14 +5,16 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/dradtke/debug-console/dap"
+	"github.com/neovim/go-client/nvim"
 	"github.com/neovim/go-client/nvim/plugin"
 )
 
 const (
 	SignGroupBreakpoint = "debug-console-breakpoint"
-	SignNameBreakpoint = "debug-console-breakpoint"
+	SignNameBreakpoint  = "debug-console-breakpoint"
 )
 
 var (
@@ -33,10 +35,10 @@ func Run(filepath string, start StartFunc, onInitialized func(*dap.Process)) {
 	}
 	stateMu.Lock()
 	state = State{
-		Running:       true,
-		Process:       p,
-		Capabilities:  nil,
-		Filepath:      filepath,
+		Running:      true,
+		Process:      p,
+		Capabilities: nil,
+		Filepath:     filepath,
 	}
 	stateMu.Unlock()
 	go func() {
@@ -65,10 +67,67 @@ func Run(filepath string, start StartFunc, onInitialized func(*dap.Process)) {
 	}()
 }
 
-func SendConfiguration(p *dap.Process) {
-	if _, err := p.SendRequest("configurationDone", make(map[string]any)); err != nil {
-		log.Printf("Error finishing configuration: %s", err)
+func SendConfiguration(v *nvim.Nvim, p *dap.Process) error {
+	log.Print("Sending configuration")
+
+	allBreakpointSigns, err := GetAllSigns(v, SignGroupBreakpoint)
+	if err != nil {
+		return fmt.Errorf("Error getting breakpoint signs: %w", err)
 	}
+
+	var (
+		wg     sync.WaitGroup
+		errs   []error
+		errsMu sync.Mutex
+	)
+
+	addErr := func(err error) {
+		errsMu.Lock()
+		errs = append(errs, err)
+		errsMu.Unlock()
+	}
+
+	wg.Add(len(allBreakpointSigns))
+
+	for buffer, breakpointSigns := range allBreakpointSigns {
+		go func(buffer nvim.Buffer, breakpointSigns []SignInfo) {
+			bufferPath, err := BufferPath(v, buffer)
+			if err != nil {
+				addErr(fmt.Errorf("SendConfiguration: %w", err))
+			}
+			var breakpoints []map[string]any
+			for _, breakpointSign := range breakpointSigns {
+				breakpoints = append(breakpoints, map[string]any{
+					"line": breakpointSign.LineNumber,
+				})
+			}
+			if _, err := p.SendRequest("setBreakpoints", map[string]any{
+				"source": map[string]any{
+					"path": bufferPath,
+				},
+				"breakpoints": breakpoints,
+			}); err != nil {
+				addErr(fmt.Errorf("Error setting breakpoints: %w", err))
+			}
+			wg.Done()
+		}(buffer, breakpointSigns)
+	}
+
+	log.Print("Waiting for breakpoint setting to complete")
+	wg.Wait()
+
+	// TODO: use multierr or similar?
+	if len(errs) > 0 {
+		log.Printf("Got an error: %s", errs[0])
+		return fmt.Errorf("Error setting one or more breakpoints: %w", errs[0])
+	}
+
+	if _, err := p.SendRequest("configurationDone", make(map[string]any)); err != nil {
+		return fmt.Errorf("Error finishing configuration: %w", err)
+	}
+
+	log.Print("Configuration complete!")
+	return nil
 }
 
 func setLogOutput() error {
@@ -83,6 +142,12 @@ func setLogOutput() error {
 	log.SetFlags(0)
 	log.SetOutput(f)
 	return nil
+}
+
+func HandlePanic() {
+	if r := recover(); r != nil {
+		log.Printf("Panic error: %s", r)
+	}
 }
 
 func Main() error {

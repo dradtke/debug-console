@@ -2,12 +2,13 @@ package nvim
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/neovim/go-client/nvim"
 )
 
 type SignGetPlacedResult struct {
-	Buffer nvim.Buffer `msgpack:"bufnr"`
+	Buffer int `msgpack:"bufnr"` // NOTE: This won't marshal if using the nvim.Buffer type
 	Signs  []struct {
 		ID         int `msgpack:"id"`
 		LineNumber int `msgpack:"lnum"`
@@ -31,7 +32,7 @@ func GetSignAt(v *nvim.Nvim, signGroup, buffer string, lineNum int) (SignInfo, e
 	}
 
 	sign := SignInfo{
-		Buffer:     result[0].Buffer,
+		Buffer:     nvim.Buffer(result[0].Buffer),
 		LineNumber: lineNum,
 		Group:      signGroup,
 	}
@@ -45,23 +46,24 @@ func GetSignAt(v *nvim.Nvim, signGroup, buffer string, lineNum int) (SignInfo, e
 	return sign, nil
 }
 
-func GetAllSigns(v *nvim.Nvim, signGroup string) ([]SignInfo, error) {
-	var signs []SignInfo
+func GetAllSigns(v *nvim.Nvim, signGroup string) (map[nvim.Buffer][]SignInfo, error) {
+	signs := make(map[nvim.Buffer][]SignInfo)
 
 	buffers, err := v.Buffers()
 	if err != nil {
+		log.Print(err)
 		return signs, fmt.Errorf("GetAllSigns: %w", err)
 	}
 
 	for _, buffer := range buffers {
-		var result []SignGetPlacedResult
-		if err := v.Call("sign_getplaced", &result, buffer, map[string]any{
+		var placedSigns []SignGetPlacedResult
+		if err := v.Call("sign_getplaced", &placedSigns, buffer, map[string]any{
 			"group": signGroup,
 		}); err != nil {
 			return signs, fmt.Errorf("GetAllSigns: Error getting sign info: %w", err)
 		}
-		for _, sign := range result[0].Signs {
-			signs = append(signs, SignInfo{
+		for _, sign := range placedSigns[0].Signs {
+			signs[buffer] = append(signs[buffer], SignInfo{
 				Buffer:     buffer,
 				ID:         sign.ID,
 				LineNumber: sign.LineNumber,
@@ -72,6 +74,14 @@ func GetAllSigns(v *nvim.Nvim, signGroup string) ([]SignInfo, error) {
 	}
 	
 	return signs, nil
+}
+
+func BufferPath(v *nvim.Nvim, buffer nvim.Buffer) (string, error) {
+	var result string
+	if err := v.Call("expand", &result, fmt.Sprintf("#%d:p", buffer)); err != nil {
+		return result, fmt.Errorf("BufferPath: %w", err)
+	}
+	return result, nil
 }
 
 func PlaceSign(v *nvim.Nvim, name string, sign SignInfo) error {

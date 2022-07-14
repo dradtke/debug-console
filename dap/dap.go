@@ -29,6 +29,7 @@ type Process struct {
 	cmd            *exec.Cmd
 	stdout, stderr io.ReadCloser
 	stdin          io.WriteCloser
+	stdinMu sync.Mutex
 	eventHandler   func(Event)
 }
 
@@ -173,6 +174,8 @@ func (p *Process) SendMessage(msg any) error {
 	//for _, line := range strings.Split(string(b), NL) {
 	//	log.Printf(">> %s", line)
 	//}
+	p.stdinMu.Lock()
+	defer p.stdinMu.Unlock()
 	if _, err := p.stdin.Write(b); err != nil {
 		return fmt.Errorf("Process.SendMessage: error sending message: %w", err)
 	}
