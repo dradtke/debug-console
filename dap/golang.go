@@ -11,8 +11,8 @@ import (
 // dlv is at ~/.asdf/installs/golang/1.18.3/packages/bin/dlv
 // other source & docs are around there, too
 
-func GoCommand(dapDir string) ([]string, error) {
-	dir := filepath.Join(dapDir, "golang")
+func (d *DAP) GoCommand() ([]string, error) {
+	dir := filepath.Join(d.Dir, "golang")
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		if err = DownloadGo(dir); err != nil {
 			return nil, fmt.Errorf("Go: error downloading adapter: %w", err)
@@ -25,7 +25,7 @@ func GoCommand(dapDir string) ([]string, error) {
 	}, nil
 }
 
-func GoLaunch(filepath string, p *Process) (Response, error) {
+func (d *DAP) GoLaunch(filepath string) (Response, error) {
 	const dlv = "/home/damien/.asdf/installs/golang/1.18.3/packages/bin/dlv"
 	log.Println("Launching Delve!")
 	args := map[string]any{
@@ -37,7 +37,7 @@ func GoLaunch(filepath string, p *Process) (Response, error) {
 	if strings.HasSuffix(filepath, "_test.go") {
 		args["mode"] = "test"
 	}
-	return p.SendRequest("launch", args)
+	return d.SendRequest("launch", args)
 }
 
 func DownloadGo(dir string) error {

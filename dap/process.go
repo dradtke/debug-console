@@ -12,20 +12,17 @@ import (
 	"sync"
 )
 
-var (
-	responseHandlers   = make(map[int64]chan<- Response)
-	responseHandlersMu sync.Mutex
-)
-
 type Process struct {
-	cmd            *exec.Cmd
-	stdout, stderr io.ReadCloser
-	stdin          io.WriteCloser
-	stdinMu sync.Mutex
-	eventHandler   func(Event)
+	cmd                *exec.Cmd
+	stdout, stderr     io.ReadCloser
+	stdin              io.WriteCloser
+	stdinMu            sync.Mutex
+	eventHandler       func(Event)
+	responseHandlers   map[int64]chan<- Response
+	responseHandlersMu sync.Mutex
 }
 
-func NewProcess(eventHandler func(Event), name string, args ...string) (*Process, error) {
+func (d *DAP) NewProcess(name string, args ...string) (*Process, error) {
 	cmd := exec.Command(name, args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -43,11 +40,12 @@ func NewProcess(eventHandler func(Event), name string, args ...string) (*Process
 		return nil, fmt.Errorf("run: %w", err)
 	}
 	p := &Process{
-		cmd:      cmd,
-		stdout:   stdout,
-		stderr:   stderr,
-		stdin:    stdin,
-		eventHandler: eventHandler,
+		cmd:          cmd,
+		stdout:       stdout,
+		stderr:       stderr,
+		stdin:        stdin,
+		eventHandler: d.EventHandler,
+		responseHandlers: make(map[int64]chan<- Response),
 	}
 	go p.HandleStdout()
 	go p.HandleStderr()
@@ -110,10 +108,10 @@ func (p *Process) HandleStdout() {
 				log.Printf("dap stdout: error parsing response: %s", err)
 			}
 
-			responseHandlersMu.Lock()
-			ch := responseHandlers[resp.RequestSeq]
-			delete(responseHandlers, resp.RequestSeq)
-			responseHandlersMu.Unlock()
+			p.responseHandlersMu.Lock()
+			ch := p.responseHandlers[resp.RequestSeq]
+			delete(p.responseHandlers, resp.RequestSeq)
+			p.responseHandlersMu.Unlock()
 
 			if ch != nil {
 				ch <- resp
@@ -124,7 +122,7 @@ func (p *Process) HandleStdout() {
 			if err := json.Unmarshal([]byte(body), &event); err != nil {
 				log.Printf("dap stdout: error parsing event: %s", err)
 			}
-			p.eventHandler(event)
+			go p.eventHandler(event)
 
 		default:
 			log.Printf("unrecognized incoming message type: %s", parsed.Type)
@@ -136,14 +134,14 @@ func (p *Process) SendRequest(name string, args any) (Response, error) {
 	req := NewRequest(name, args)
 	ch := make(chan Response, 1)
 
-	responseHandlersMu.Lock()
-	responseHandlers[req.Seq] = ch
-	responseHandlersMu.Unlock()
+	p.responseHandlersMu.Lock()
+	p.responseHandlers[req.Seq] = ch
+	p.responseHandlersMu.Unlock()
 
 	if err := p.SendMessage(req); err != nil {
-		responseHandlersMu.Lock()
-		delete(responseHandlers, req.Seq)
-		responseHandlersMu.Unlock()
+		p.responseHandlersMu.Lock()
+		delete(p.responseHandlers, req.Seq)
+		p.responseHandlersMu.Unlock()
 		return Response{}, fmt.Errorf("Error sending request: %s: %w", name, err)
 	}
 

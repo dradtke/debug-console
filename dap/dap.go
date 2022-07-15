@@ -8,51 +8,36 @@ import (
 	"sync"
 )
 
-var (
-	// Current state global
-	state   State
-	stateMu sync.Mutex
-)
+type DAP struct {
+	sync.RWMutex
 
-type State struct {
-	Running      bool
+	// Dir is where debug adapters are saved locally.
+	Dir string
+	EventHandler func(Event)
 	Process      *Process
 	Capabilities map[string]bool
-	Filepath     string
-}
-
-type RunArgs struct {
-	DapDir, Filepath string
-	EventHandler     func(Event)
-	DapCommand       DapCommandFunc
 }
 
 type DapCommandFunc func(string) ([]string, error)
 
-func Run(args RunArgs) (*Process, error) {
-	if state.Running {
-		return nil, errors.New("A debug adapter is already running")
+func (d *DAP) Run(command []string) (*Process, error) {
+	d.RLock()
+	if d.Process != nil {
+		defer d.RUnlock()
+		return d.Process, errors.New("A debug adapter is already running")
 	}
+	d.RUnlock()
 
 	log.Printf("Starting debug adapter...")
-	command, err := args.DapCommand(args.DapDir)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to build DAP command: %w", err)
-	}
 
-	p, err := NewProcess(args.EventHandler, command[0], command[1:]...)
+	p, err := d.NewProcess(command[0], command[1:]...)
 	if err != nil {
 		log.Printf("Failed to start debug adapter process: %s", err)
 	}
 
-	stateMu.Lock()
-	state = State{
-		Running:      true,
-		Process:      p,
-		Capabilities: nil,
-		Filepath:     args.Filepath,
-	}
-	stateMu.Unlock()
+	d.Lock()
+	d.Process = p
+	d.Unlock()
 
 	go func() {
 		if err := p.Wait(); err != nil {
@@ -60,9 +45,7 @@ func Run(args RunArgs) (*Process, error) {
 		} else {
 			log.Print("Debug adapter exited")
 		}
-		stateMu.Lock()
-		state = State{}
-		stateMu.Unlock()
+		d.ClearProcess()
 	}()
 
 	log.Printf("Started debug adapter")
@@ -71,14 +54,26 @@ func Run(args RunArgs) (*Process, error) {
 	if err != nil {
 		return p, fmt.Errorf("Error initializing debug adapter: %w", err)
 	}
-	state.Capabilities = make(map[string]bool)
-	if err := json.Unmarshal(resp.Body, &state.Capabilities); err != nil {
+	d.Capabilities = make(map[string]bool)
+	if err := json.Unmarshal(resp.Body, &d.Capabilities); err != nil {
 		log.Printf("Error parsing capabilities: %s", err)
 	}
 
-	return state.Process, nil
+	return p, nil
 }
 
-func ClearState() {
-	state = State{}
+func (d *DAP) SendRequest(name string, args any) (Response, error) {
+	d.Lock()
+	p := d.Process
+	d.Unlock()
+	if p == nil {
+		return Response{}, errors.New("No process running")
+	}
+	return p.SendRequest(name, args)
+}
+
+func (d *DAP) ClearProcess() {
+	d.Lock()
+	d.Process = nil
+	d.Unlock()
 }

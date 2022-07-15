@@ -118,7 +118,12 @@ func Main() error {
 	}
 
 	plugin.Main(func(p *plugin.Plugin) error {
-		RegisterCommands(p)
+		d := &dap.DAP{
+			Dir: os.Getenv("DAP_DIR"),
+		}
+		d.EventHandler = HandleEvent(p.Nvim, d) // this feels weird to do
+
+		RegisterCommands(p, d)
 		return nil
 	})
 
