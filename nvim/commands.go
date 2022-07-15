@@ -21,8 +21,17 @@ func DebugRun(v *nvim.Nvim, eval *struct {
 	log.Print("Starting debug run")
 	switch eval.Filetype {
 	case "go":
-		Run(eval.Path, dap.GoStart, func(p *dap.Process) {
-			defer HandlePanic()
+		go func() {
+			p, err := dap.Run(dap.RunArgs{
+				Filepath:     eval.Path,
+				DapDir:       dapDir,
+				EventHandler: HandleEvent,
+				DapCommand:   dap.GoCommand,
+			})
+			if err != nil {
+				log.Printf("Error starting debug adapter: %s", err)
+				return
+			}
 			log.Print("Go debug adapter initialized, launching")
 			if _, err := dap.GoLaunch(eval.Path, p); err != nil {
 				log.Printf("Error launching Go: %s", err)
@@ -31,7 +40,7 @@ func DebugRun(v *nvim.Nvim, eval *struct {
 			if err := SendConfiguration(v, p); err != nil {
 				log.Printf("Error sending configuration: %s", err)
 			}
-		})
+		}()
 	default:
 		return fmt.Errorf("unsupported filetype: %s", eval.Filetype)
 	}

@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 )
 
+const NL = "\r\n"
+
 var seq int64
 
 func Message(msg any) ([]byte, error) {

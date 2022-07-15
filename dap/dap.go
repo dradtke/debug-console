@@ -1,239 +1,84 @@
 package dap
 
 import (
-	"archive/zip"
-	"bufio"
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"sync"
 )
 
-const NL = "\r\n"
-
 var (
-	responseHandlers   = make(map[int64]chan<- Response)
-	responseHandlersMu sync.Mutex
+	// Current state global
+	state   State
+	stateMu sync.Mutex
 )
 
-type OnInitializedFunc func(string, *Process)
-
-type Process struct {
-	cmd            *exec.Cmd
-	stdout, stderr io.ReadCloser
-	stdin          io.WriteCloser
-	stdinMu sync.Mutex
-	eventHandler   func(Event)
+type State struct {
+	Running      bool
+	Process      *Process
+	Capabilities map[string]bool
+	Filepath     string
 }
 
-func NewProcess(eventHandler func(Event), name string, args ...string) (*Process, error) {
-	cmd := exec.Command(name, args...)
-	stdout, err := cmd.StdoutPipe()
+type RunArgs struct {
+	DapDir, Filepath string
+	EventHandler     func(Event)
+	DapCommand       DapCommandFunc
+}
+
+type DapCommandFunc func(string) ([]string, error)
+
+func Run(args RunArgs) (*Process, error) {
+	if state.Running {
+		return nil, errors.New("A debug adapter is already running")
+	}
+
+	log.Printf("Starting debug adapter...")
+	command, err := args.DapCommand(args.DapDir)
 	if err != nil {
-		return nil, fmt.Errorf("run: %w", err)
+		return nil, fmt.Errorf("Failed to build DAP command: %w", err)
 	}
-	stderr, err := cmd.StderrPipe()
+
+	p, err := NewProcess(args.EventHandler, command[0], command[1:]...)
 	if err != nil {
-		return nil, fmt.Errorf("run: %w", err)
+		log.Printf("Failed to start debug adapter process: %s", err)
 	}
-	stdin, err := cmd.StdinPipe()
+
+	stateMu.Lock()
+	state = State{
+		Running:      true,
+		Process:      p,
+		Capabilities: nil,
+		Filepath:     args.Filepath,
+	}
+	stateMu.Unlock()
+
+	go func() {
+		if err := p.Wait(); err != nil {
+			log.Printf("Debug adapter exited with error: %s", err)
+		} else {
+			log.Print("Debug adapter exited")
+		}
+		stateMu.Lock()
+		state = State{}
+		stateMu.Unlock()
+	}()
+
+	log.Printf("Started debug adapter")
+
+	resp, err := p.Initialize()
 	if err != nil {
-		return nil, fmt.Errorf("run: %w", err)
+		return p, fmt.Errorf("Error initializing debug adapter: %w", err)
 	}
-	if err = cmd.Start(); err != nil {
-		return nil, fmt.Errorf("run: %w", err)
+	state.Capabilities = make(map[string]bool)
+	if err := json.Unmarshal(resp.Body, &state.Capabilities); err != nil {
+		log.Printf("Error parsing capabilities: %s", err)
 	}
-	p := &Process{
-		cmd:      cmd,
-		stdout:   stdout,
-		stderr:   stderr,
-		stdin:    stdin,
-		eventHandler: eventHandler,
-	}
-	go p.HandleStdout()
-	go p.HandleStderr()
-	return p, nil
+
+	return state.Process, nil
 }
 
-func (p *Process) Wait() error {
-	return p.cmd.Wait()
-}
-
-func (p *Process) Stop() {
-	log.Print("Killing debug adapter")
-	if err := p.cmd.Process.Kill(); err != nil {
-		log.Printf("Error killing debug adapter: %s", err)
-	}
-}
-
-func (p *Process) HandleStderr() {
-	scanner := bufio.NewScanner(p.stderr)
-	for scanner.Scan() {
-		log.Printf("<! %s", scanner.Text())
-	}
-}
-
-func (p *Process) HandleStdout() {
-	var (
-		scratch = make([]byte, 4096)
-		buf     bytes.Buffer
-	)
-	for {
-		_ /*rawHeaders*/, _, body, err := ReadMessage(p.stdout, scratch, &buf)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				log.Print("dap exiting")
-				return
-			}
-			log.Printf("dap stdout: error reading message: %s", err)
-			continue
-		}
-
-		//for _, line := range strings.Split(rawHeaders, NL) {
-		//	log.Printf("<< %s", line)
-		//}
-		//log.Println("<<")
-		//for _, line := range strings.Split(body, NL) {
-		//	log.Printf("<< %s", line)
-		//}
-
-		var parsed struct {
-			Type string `json:"type"`
-		}
-		if err := json.Unmarshal([]byte(body), &parsed); err != nil {
-			log.Printf("dap stdout: error parsing message: %s", err)
-		}
-
-		switch parsed.Type {
-		case "response":
-			var resp Response
-			if err := json.Unmarshal([]byte(body), &resp); err != nil {
-				log.Printf("dap stdout: error parsing response: %s", err)
-			}
-
-			responseHandlersMu.Lock()
-			ch := responseHandlers[resp.RequestSeq]
-			delete(responseHandlers, resp.RequestSeq)
-			responseHandlersMu.Unlock()
-
-			if ch != nil {
-				ch <- resp
-			}
-
-		case "event":
-			var event Event
-			if err := json.Unmarshal([]byte(body), &event); err != nil {
-				log.Printf("dap stdout: error parsing event: %s", err)
-			}
-			p.eventHandler(event)
-
-		default:
-			log.Printf("unrecognized incoming message type: %s", parsed.Type)
-		}
-	}
-}
-
-func (p *Process) SendRequest(name string, args any) (Response, error) {
-	req := NewRequest(name, args)
-	ch := make(chan Response, 1)
-
-	responseHandlersMu.Lock()
-	responseHandlers[req.Seq] = ch
-	responseHandlersMu.Unlock()
-
-	if err := p.SendMessage(req); err != nil {
-		responseHandlersMu.Lock()
-		delete(responseHandlers, req.Seq)
-		responseHandlersMu.Unlock()
-		return Response{}, fmt.Errorf("Error sending request: %s: %w", name, err)
-	}
-
-	resp := <-ch
-	if !resp.Success {
-		var errorResp ErrorResponse
-		if err := json.Unmarshal(resp.Body, &errorResp); err != nil {
-			return resp, fmt.Errorf("Error unmarshaling error response: %w", err)
-		}
-		return resp, errorResp
-	}
-	return resp, nil
-}
-
-func (p *Process) SendMessage(msg any) error {
-	b, err := Message(msg)
-	if err != nil {
-		return fmt.Errorf("Process.SendMessage: error building message: %w", err)
-	}
-	//for _, line := range strings.Split(string(b), NL) {
-	//	log.Printf(">> %s", line)
-	//}
-	p.stdinMu.Lock()
-	defer p.stdinMu.Unlock()
-	if _, err := p.stdin.Write(b); err != nil {
-		return fmt.Errorf("Process.SendMessage: error sending message: %w", err)
-	}
-	return nil
-}
-
-func (p *Process) Initialize() (Response, error) {
-	// TODO: create a struct for this?
-	return p.SendRequest("initialize", map[string]any{
-		"adapterID":                    "debug-console",
-		"pathFormat":                   "path",
-		"linesStartAt1":                true,
-		"columnsStartAt1":              true,
-		"supportsRunInTerminalRequest": true,
-	})
-}
-
-func (p *Process) Close() error {
-	return p.cmd.Wait()
-}
-
-func getZip(dst, src string) error {
-	log.Printf("Downloading zip archive from %s to %s", src, dst)
-	resp, err := http.Get(src)
-	if err != nil {
-		return fmt.Errorf("getZip: %w", err)
-	}
-	defer resp.Body.Close()
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("getZip: %w", err)
-	}
-
-	r, err := zip.NewReader(bytes.NewReader(b), int64(len(b)))
-	if err != nil {
-		return fmt.Errorf("getZip: %w", err)
-	}
-
-	// TODO: need to save these files to dapDir/name, preserving their structure
-	for _, f := range r.File {
-		r, err := f.Open()
-		if err != nil {
-			return fmt.Errorf("getZip: %w", err)
-		}
-		fileDest := filepath.Join(dst, f.Name)
-		if err := os.MkdirAll(filepath.Dir(fileDest), 0755); err != nil {
-			return fmt.Errorf("getZip: %w", err)
-		}
-		f, err := os.OpenFile(fileDest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, f.Mode())
-		if err != nil {
-			return fmt.Errorf("getZip: %w", err)
-		}
-		if _, err := io.Copy(f, r); err != nil {
-			return fmt.Errorf("getZip: %w", err)
-		}
-	}
-	log.Print("Download complete")
-
-	return nil
+func ClearState() {
+	state = State{}
 }

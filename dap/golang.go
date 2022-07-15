@@ -11,7 +11,7 @@ import (
 // dlv is at ~/.asdf/installs/golang/1.18.3/packages/bin/dlv
 // other source & docs are around there, too
 
-func GoStart(dapDir string, eventHandler func(Event)) (*Process, error) {
+func GoCommand(dapDir string) ([]string, error) {
 	dir := filepath.Join(dapDir, "golang")
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		if err = DownloadGo(dir); err != nil {
@@ -19,12 +19,10 @@ func GoStart(dapDir string, eventHandler func(Event)) (*Process, error) {
 		}
 	}
 
-	p, err := NewProcess(eventHandler, "node", filepath.Join(dir, "extension/dist/debugAdapter.js"))
-	if err != nil {
-		return nil, fmt.Errorf("Go: error running adapter: %w", err)
-	}
-
-	return p, nil
+	return []string{
+		"node",
+		filepath.Join(dir, "extension/dist/debugAdapter.js"),
+	}, nil
 }
 
 func GoLaunch(filepath string, p *Process) (Response, error) {
