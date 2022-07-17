@@ -172,17 +172,6 @@ func (p *Process) SendMessage(msg any) error {
 	return nil
 }
 
-func (p *Process) Initialize() (Response, error) {
-	// TODO: create a struct for this?
-	return p.SendRequest("initialize", map[string]any{
-		"adapterID":                    "debug-console",
-		"pathFormat":                   "path",
-		"linesStartAt1":                true,
-		"columnsStartAt1":              true,
-		"supportsRunInTerminalRequest": true,
-	})
-}
-
 func (p *Process) Close() error {
 	return p.cmd.Wait()
 }

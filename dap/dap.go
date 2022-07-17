@@ -41,6 +41,7 @@ func (d *DAP) Run(command []string) (*Process, error) {
 
 	go func() {
 		if err := p.Wait(); err != nil {
+			// ???: Suppress this message if the adapter was killed by Neovim exiting?
 			log.Printf("Debug adapter exited with error: %s", err)
 		} else {
 			log.Print("Debug adapter exited")

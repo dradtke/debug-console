@@ -75,7 +75,7 @@ func SendConfiguration(v *nvim.Nvim, p *dap.Process) error {
 		return fmt.Errorf("Error setting one or more breakpoints: %w", errs[0])
 	}
 
-	if _, err := p.SendRequest("configurationDone", make(map[string]any)); err != nil {
+	if _, err := p.ConfigurationDone(); err != nil {
 		return fmt.Errorf("Error finishing configuration: %w", err)
 	}
 
@@ -103,6 +103,16 @@ func HandlePanic() {
 	}
 }
 
+func VimLeave(d *dap.DAP) any {
+	return func() {
+		d.Lock()
+		defer d.Unlock()
+		if d.Process != nil {
+			d.Process.Stop()
+		}
+	}
+}
+
 func Main() error {
 	if os.Getenv("NVIM") != "" {
 		if err := setLogOutput(); err != nil {
@@ -117,12 +127,13 @@ func Main() error {
 		}
 	}
 
-	plugin.Main(func(p *plugin.Plugin) error {
-		d := &dap.DAP{
-			Dir: os.Getenv("DAP_DIR"),
-		}
-		d.EventHandler = HandleEvent(p.Nvim, d) // this feels weird to do
+	d := &dap.DAP{
+		Dir: os.Getenv("DAP_DIR"),
+	}
 
+	plugin.Main(func(p *plugin.Plugin) error {
+		d.EventHandler = HandleEvent(p.Nvim, d) // this feels weird to do
+		p.HandleAutocmd(&plugin.AutocmdOptions{Event: "VimLeave", Pattern: "*"}, VimLeave(d))
 		RegisterCommands(p, d)
 		return nil
 	})
