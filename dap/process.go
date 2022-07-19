@@ -8,21 +8,22 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os/exec"
 	"sync"
 )
 
-type Process struct {
+type Conn struct {
 	cmd                *exec.Cmd
-	stdout, stderr     io.ReadCloser
-	stdin              io.WriteCloser
-	stdinMu            sync.Mutex
+	out, err           io.ReadCloser
+	in                 io.WriteCloser
+	inMu               sync.Mutex
 	eventHandler       func(Event)
 	responseHandlers   map[int64]chan<- Response
 	responseHandlersMu sync.Mutex
 }
 
-func (d *DAP) NewProcess(name string, args ...string) (*Process, error) {
+func (d *DAP) NewProcess(name string, args ...string) (*Conn, error) {
 	cmd := exec.Command(name, args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -39,44 +40,70 @@ func (d *DAP) NewProcess(name string, args ...string) (*Process, error) {
 	if err = cmd.Start(); err != nil {
 		return nil, fmt.Errorf("run: %w", err)
 	}
-	p := &Process{
-		cmd:          cmd,
-		stdout:       stdout,
-		stderr:       stderr,
-		stdin:        stdin,
-		eventHandler: d.EventHandler,
+	c := &Conn{
+		cmd:              cmd,
+		out:              stdout,
+		err:              stderr,
+		in:               stdin,
+		eventHandler:     d.EventHandler,
 		responseHandlers: make(map[int64]chan<- Response),
 	}
-	go p.HandleStdout()
-	go p.HandleStderr()
-	return p, nil
+	go c.HandleOut()
+	go c.HandleErr()
+	return c, nil
 }
 
-func (p *Process) Wait() error {
-	return p.cmd.Wait()
+// TODO: this seems to be needed for jdtls, need to test it though.
+func (d *DAP) Connect(network, addr string) (*Conn, error) {
+	rawConn, err := net.Dial(network, addr)
+	if err != nil {
+		return nil, fmt.Errorf("Error connecting to debug adapter at %s: %w", addr, err)
+	}
+	c := &Conn{
+		out:              rawConn,
+		in:               rawConn,
+		eventHandler:     d.EventHandler,
+		responseHandlers: make(map[int64]chan<- Response),
+	}
+	go c.HandleOut()
+	// go c.HandleStderr()
+	return c, nil
 }
 
-func (p *Process) Stop() {
-	log.Print("Killing debug adapter")
-	if err := p.cmd.Process.Kill(); err != nil {
-		log.Printf("Error killing debug adapter: %s", err)
+func (c *Conn) Wait() error {
+	if c.cmd == nil {
+		return nil
+	}
+	return c.cmd.Wait()
+}
+
+func (c *Conn) Stop() {
+	if c.cmd == nil {
+		// ???: Is this enough to tell the connection to stop?
+		c.out.Close()
+		c.in.Close()
+	} else {
+		log.Print("Killing debug adapter")
+		if err := c.cmd.Process.Kill(); err != nil {
+			log.Printf("Error killing debug adapter: %s", err)
+		}
 	}
 }
 
-func (p *Process) HandleStderr() {
-	scanner := bufio.NewScanner(p.stderr)
+func (c *Conn) HandleErr() {
+	scanner := bufio.NewScanner(c.err)
 	for scanner.Scan() {
 		log.Printf("<! %s", scanner.Text())
 	}
 }
 
-func (p *Process) HandleStdout() {
+func (c *Conn) HandleOut() {
 	var (
 		scratch = make([]byte, 4096)
 		buf     bytes.Buffer
 	)
 	for {
-		_ /*rawHeaders*/, _, body, err := ReadMessage(p.stdout, scratch, &buf)
+		_ /*rawHeaders*/, _, body, err := ReadMessage(c.out, scratch, &buf)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				log.Print("dap exiting")
@@ -108,10 +135,10 @@ func (p *Process) HandleStdout() {
 				log.Printf("dap stdout: error parsing response: %s", err)
 			}
 
-			p.responseHandlersMu.Lock()
-			ch := p.responseHandlers[resp.RequestSeq]
-			delete(p.responseHandlers, resp.RequestSeq)
-			p.responseHandlersMu.Unlock()
+			c.responseHandlersMu.Lock()
+			ch := c.responseHandlers[resp.RequestSeq]
+			delete(c.responseHandlers, resp.RequestSeq)
+			c.responseHandlersMu.Unlock()
 
 			if ch != nil {
 				ch <- resp
@@ -122,7 +149,7 @@ func (p *Process) HandleStdout() {
 			if err := json.Unmarshal([]byte(body), &event); err != nil {
 				log.Printf("dap stdout: error parsing event: %s", err)
 			}
-			go p.eventHandler(event)
+			go c.eventHandler(event)
 
 		default:
 			log.Printf("unrecognized incoming message type: %s", parsed.Type)
@@ -130,18 +157,18 @@ func (p *Process) HandleStdout() {
 	}
 }
 
-func (p *Process) SendRequest(name string, args any) (Response, error) {
+func (c *Conn) SendRequest(name string, args any) (Response, error) {
 	req := NewRequest(name, args)
 	ch := make(chan Response, 1)
 
-	p.responseHandlersMu.Lock()
-	p.responseHandlers[req.Seq] = ch
-	p.responseHandlersMu.Unlock()
+	c.responseHandlersMu.Lock()
+	c.responseHandlers[req.Seq] = ch
+	c.responseHandlersMu.Unlock()
 
-	if err := p.SendMessage(req); err != nil {
-		p.responseHandlersMu.Lock()
-		delete(p.responseHandlers, req.Seq)
-		p.responseHandlersMu.Unlock()
+	if err := c.SendMessage(req); err != nil {
+		c.responseHandlersMu.Lock()
+		delete(c.responseHandlers, req.Seq)
+		c.responseHandlersMu.Unlock()
 		return Response{}, fmt.Errorf("Error sending request: %s: %w", name, err)
 	}
 
@@ -156,7 +183,7 @@ func (p *Process) SendRequest(name string, args any) (Response, error) {
 	return resp, nil
 }
 
-func (p *Process) SendMessage(msg any) error {
+func (c *Conn) SendMessage(msg any) error {
 	b, err := Message(msg)
 	if err != nil {
 		return fmt.Errorf("Process.SendMessage: error building message: %w", err)
@@ -164,14 +191,10 @@ func (p *Process) SendMessage(msg any) error {
 	//for _, line := range strings.Split(string(b), NL) {
 	//	log.Printf(">> %s", line)
 	//}
-	p.stdinMu.Lock()
-	defer p.stdinMu.Unlock()
-	if _, err := p.stdin.Write(b); err != nil {
+	c.inMu.Lock()
+	defer c.inMu.Unlock()
+	if _, err := c.in.Write(b); err != nil {
 		return fmt.Errorf("Process.SendMessage: error sending message: %w", err)
 	}
 	return nil
-}
-
-func (p *Process) Close() error {
-	return p.cmd.Wait()
 }

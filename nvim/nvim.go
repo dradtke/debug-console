@@ -20,7 +20,7 @@ var (
 	dapDir string
 )
 
-func SendConfiguration(v *nvim.Nvim, p *dap.Process) error {
+func SendConfiguration(v *nvim.Nvim, p *dap.Conn) error {
 	log.Print("Sending configuration")
 
 	allBreakpointSigns, err := GetAllSigns(v, SignGroupBreakpoint)
@@ -107,8 +107,9 @@ func VimLeave(d *dap.DAP) any {
 	return func() {
 		d.Lock()
 		defer d.Unlock()
-		if d.Process != nil {
-			d.Process.Stop()
+		if d.Conn != nil {
+			log.Println("Editor is quitting, killing running process")
+			d.Conn.Stop()
 		}
 	}
 }

@@ -1,6 +1,6 @@
 package dap
 
-func (p *Process) Initialize() (Response, error) {
+func (p *Conn) Initialize() (Response, error) {
 	type Args struct {
 		AdapterID                    string `json:"adapterID"`
 		PathFormat                   string `json:"pathFormat"`
@@ -18,7 +18,7 @@ func (p *Process) Initialize() (Response, error) {
 	})
 }
 
-func (p *Process) ConfigurationDone() (Response, error) {
+func (p *Conn) ConfigurationDone() (Response, error) {
 	return p.SendRequest("configurationDone", struct{}{})
 }
 
