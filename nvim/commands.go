@@ -23,11 +23,7 @@ func DebugRun(d *dap.DAP) any {
 		switch eval.Filetype {
 		case "go":
 			go func() {
-				command, err := d.GoCommand()
-				if err != nil {
-					log.Printf("Error building Go debug adapter command: %s", err)
-				}
-				p, err := d.Run(command)
+				p, err := d.Run(dap.GoConnector(d.Dir))
 				if err != nil {
 					log.Printf("Error starting debug adapter: %s", err)
 					return

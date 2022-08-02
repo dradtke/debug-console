@@ -14,8 +14,9 @@ func main() {
 	cmd := os.Args[1]
 	args := os.Args[1:]
 
-	funcs := map[string]func([]string) error {
-		"nvim": runNvim,
+	funcs := map[string]func([]string) error{
+		"console": runConsole,
+		"nvim":    runNvim,
 	}
 
 	f, ok := funcs[cmd]

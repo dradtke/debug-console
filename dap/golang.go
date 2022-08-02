@@ -11,18 +11,20 @@ import (
 // dlv is at ~/.asdf/installs/golang/1.18.3/packages/bin/dlv
 // other source & docs are around there, too
 
-func (d *DAP) GoCommand() ([]string, error) {
-	dir := filepath.Join(d.Dir, "golang")
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err = DownloadGo(dir); err != nil {
-			return nil, fmt.Errorf("Go: error downloading adapter: %w", err)
+func GoConnector(dapDir string) func() (Connector, error) {
+	return func() (Connector, error) {
+		dir := filepath.Join(dapDir, "golang")
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			if err = DownloadGo(dir); err != nil {
+				return nil, fmt.Errorf("Go: error downloading adapter: %w", err)
+			}
 		}
-	}
 
-	return []string{
-		"node",
-		filepath.Join(dir, "extension/dist/debugAdapter.js"),
-	}, nil
+		return Subprocess([]string{
+			"node",
+			filepath.Join(dir, "extension/dist/debugAdapter.js"),
+		}), nil
+	}
 }
 
 func (d *DAP) GoLaunch(filepath string) (Response, error) {

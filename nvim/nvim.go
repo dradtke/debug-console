@@ -21,7 +21,7 @@ var (
 )
 
 func SendConfiguration(v *nvim.Nvim, p *dap.Conn) error {
-	log.Print("Sending configuration")
+	log.Print("Setting breakpoints")
 
 	allBreakpointSigns, err := GetAllSigns(v, SignGroupBreakpoint)
 	if err != nil {
@@ -66,7 +66,6 @@ func SendConfiguration(v *nvim.Nvim, p *dap.Conn) error {
 		}(buffer, breakpointSigns)
 	}
 
-	log.Print("Waiting for breakpoint setting to complete")
 	wg.Wait()
 
 	// TODO: use multierr or similar?
@@ -79,7 +78,6 @@ func SendConfiguration(v *nvim.Nvim, p *dap.Conn) error {
 		return fmt.Errorf("Error finishing configuration: %w", err)
 	}
 
-	log.Print("Configuration complete!")
 	return nil
 }
 
@@ -114,7 +112,7 @@ func VimLeave(d *dap.DAP) any {
 	}
 }
 
-func Main() error {
+func Main(exe string) error {
 	if os.Getenv("NVIM") != "" {
 		if err := setLogOutput(); err != nil {
 			log.Print(err)
@@ -129,6 +127,7 @@ func Main() error {
 	}
 
 	d := &dap.DAP{
+		Exe: exe,
 		Dir: os.Getenv("DAP_DIR"),
 	}
 

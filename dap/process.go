@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"os/exec"
 	"sync"
 )
@@ -21,53 +20,6 @@ type Conn struct {
 	eventHandler       func(Event)
 	responseHandlers   map[int64]chan<- Response
 	responseHandlersMu sync.Mutex
-}
-
-func (d *DAP) NewProcess(name string, args ...string) (*Conn, error) {
-	cmd := exec.Command(name, args...)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, fmt.Errorf("run: %w", err)
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, fmt.Errorf("run: %w", err)
-	}
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, fmt.Errorf("run: %w", err)
-	}
-	if err = cmd.Start(); err != nil {
-		return nil, fmt.Errorf("run: %w", err)
-	}
-	c := &Conn{
-		cmd:              cmd,
-		out:              stdout,
-		err:              stderr,
-		in:               stdin,
-		eventHandler:     d.EventHandler,
-		responseHandlers: make(map[int64]chan<- Response),
-	}
-	go c.HandleOut()
-	go c.HandleErr()
-	return c, nil
-}
-
-// TODO: this seems to be needed for jdtls, need to test it though.
-func (d *DAP) Connect(network, addr string) (*Conn, error) {
-	rawConn, err := net.Dial(network, addr)
-	if err != nil {
-		return nil, fmt.Errorf("Error connecting to debug adapter at %s: %w", addr, err)
-	}
-	c := &Conn{
-		out:              rawConn,
-		in:               rawConn,
-		eventHandler:     d.EventHandler,
-		responseHandlers: make(map[int64]chan<- Response),
-	}
-	go c.HandleOut()
-	// go c.HandleStderr()
-	return c, nil
 }
 
 func (c *Conn) Wait() error {

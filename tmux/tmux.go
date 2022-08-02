@@ -22,8 +22,26 @@ func NumPanes() (int, error) {
 func Split() error {
 	return runAll([][]string{
 		{"tmux", "split-pane", "-p", "40", "-h"},
-		{"tmux", "select-pane", "-t", "0"},
+		{"tmux", "select-pane", "-T", "console"},
+		{"tmux", "select-pane", "-l"},
 	})
+}
+
+// FindPane returns the id of the pane with the given title.
+func FindPane(title string) (string, error) {
+	v, err := exec.Command("tmux", "list-panes", "-f", fmt.Sprintf("#{==:#{pane_title},%s}", title), "-F", "#{pane_id}").Output()
+	return strings.TrimSpace(string(v)), err
+}
+
+func RunInPane(pane string, args ...string) error {
+	tmuxArgs := []string{"send-keys", "-t", pane}
+	for i := range args {
+		// Not sure if this adheres to shell rules, but it seems to work okay.
+		args[i] = strconv.Quote(args[i])
+	}
+	tmuxArgs = append(tmuxArgs, strings.Join(args, " "))
+	tmuxArgs = append(tmuxArgs, "Enter")
+	return exec.Command("tmux", tmuxArgs...).Run()
 }
 
 func runAll(cmds [][]string) error {
