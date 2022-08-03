@@ -25,7 +25,9 @@ func HandleEvent(v *nvim.Nvim, d *dap.DAP) func(dap.Event) {
 
 		case "terminated":
 			log.Print("Debug adapter terminated.")
-			d.ClearProcess()
+			d.ConsoleClient.Quit()
+			// ???: Is this the correct behavior?
+			d.Conn.Stop()
 
 		case "initialized":
 			log.Print("Debug adapter initialized")

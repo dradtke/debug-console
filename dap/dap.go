@@ -47,6 +47,7 @@ func (d *DAP) Run(f func() (Connector, error)) (conn *Conn, err error) {
 
 	defer func() {
 		if err != nil && conn != nil {
+			log.Print("Stopping existing connection")
 			conn.Stop()
 		}
 	}()
@@ -66,8 +67,8 @@ func (d *DAP) Run(f func() (Connector, error)) (conn *Conn, err error) {
 	}()
 
 	log.Printf("Started debug adapter")
-	if err = d.StartConsole(1); err != nil {
-		return nil, fmt.Errorf("Starting starting console: %w", err)
+	if err = d.StartConsole(); err != nil {
+		return conn, fmt.Errorf("Starting console: %w", err)
 	}
 
 	resp, err := conn.Initialize()
@@ -82,7 +83,7 @@ func (d *DAP) Run(f func() (Connector, error)) (conn *Conn, err error) {
 	return conn, nil
 }
 
-func (d *DAP) StartConsole(pane int) error {
+func (d *DAP) StartConsole() error {
 	consolePane, err := tmux.FindPane("console")
 	if err != nil {
 		return fmt.Errorf("Error finding console pane: %w", err)
@@ -96,10 +97,15 @@ func (d *DAP) StartConsole(pane int) error {
 		}
 	}
 
+	rpcAddr := func(addr net.Addr) string {
+		return addr.Network() + " " + addr.String()
+	}
+
 	dapListener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		return fmt.Errorf("Error opening DAP rpc listener: %w", err)
 	}
+	log.Printf("Listening for incoming rpc connections on %s", rpcAddr(dapListener.Addr()))
 
 	// Grab a free port by opening a connection, and then immediately closing it.
 	consoleListener, err := net.Listen("tcp", "localhost:0")
@@ -112,10 +118,6 @@ func (d *DAP) StartConsole(pane int) error {
 
 	go rpc.RunDap(dapListener)
 
-	rpcAddr := func(addr net.Addr) string {
-		return addr.Network() + " " + addr.String()
-	}
-
 	args := []string{
 		d.Exe,
 		"console",
@@ -127,6 +129,7 @@ func (d *DAP) StartConsole(pane int) error {
 		return fmt.Errorf("Error running console: %w", err)
 	}
 
+	log.Printf("Connecting to console rpc on %s", rpcAddr(consoleListener.Addr()))
 	d.ConsoleClient, err = rpc.NewConsoleClient(consoleListener.Addr().Network(), consoleListener.Addr().String())
 	if err != nil {
 		return fmt.Errorf("Error connecting to console: %w", err)

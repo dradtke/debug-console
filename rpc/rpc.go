@@ -7,12 +7,12 @@ import (
 )
 
 func tryDial(network, addr string) (*rpc.Client, error) {
-	for try := 0; try < 5; try++ {
+	for try := 0; try < 6; try++ {
 		c, err := rpc.Dial(network, addr)
 		if err == nil {
 			return c, nil
 		}
-		time.Sleep(2 * time.Second)
+		time.Sleep(500 * time.Millisecond)
 	}
 	return nil, errors.New("timeout")
 }

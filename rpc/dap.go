@@ -2,12 +2,16 @@ package rpc
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"net/rpc"
 )
 
-type Dap struct {
-	// TODO: define service methods
+type Dap struct{}
+
+func (d Dap) Continue(_ struct{}, _ *struct{}) error {
+	log.Print("Continuing")
+	return nil
 }
 
 func RunDap(listener net.Listener) {
