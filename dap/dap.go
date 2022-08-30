@@ -23,6 +23,7 @@ type DAP struct {
 	Conn         *Conn
 	Capabilities map[string]bool
 	ConsoleClient rpc.ConsoleClient
+	OutputBroadcaster *OutputBroadcaster
 }
 
 type DapCommandFunc func(string) ([]string, error)
@@ -80,6 +81,10 @@ func (d *DAP) Run(f func() (Connector, error)) (conn *Conn, err error) {
 		log.Printf("Error parsing capabilities: %s", err)
 	}
 
+	if d.OutputBroadcaster, err = NewOutputBroadcaster(); err != nil {
+		return conn, fmt.Errorf("Creating output broadcaster: %w", err)
+	}
+
 	return conn, nil
 }
 
@@ -89,7 +94,7 @@ func (d *DAP) StartConsole() error {
 		return fmt.Errorf("Error finding console pane: %w", err)
 	}
 	if consolePane == "" {
-		if err = tmux.Split(); err != nil {
+		if err = tmux.SplitConsole(); err != nil {
 			return fmt.Errorf("Error splitting tmux panes: %w", err)
 		}
 		if consolePane, err = tmux.FindPane("console"); err != nil {
@@ -97,15 +102,11 @@ func (d *DAP) StartConsole() error {
 		}
 	}
 
-	rpcAddr := func(addr net.Addr) string {
-		return addr.Network() + " " + addr.String()
-	}
-
 	dapListener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		return fmt.Errorf("Error opening DAP rpc listener: %w", err)
 	}
-	log.Printf("Listening for incoming rpc connections on %s", rpcAddr(dapListener.Addr()))
+	log.Printf("Listening for incoming rpc connections on %s", addrArg(dapListener.Addr()))
 
 	// Grab a free port by opening a connection, and then immediately closing it.
 	consoleListener, err := net.Listen("tcp", "localhost:0")
@@ -121,15 +122,15 @@ func (d *DAP) StartConsole() error {
 	args := []string{
 		d.Exe,
 		"console",
-		"-rpc-dap=" + rpcAddr(dapListener.Addr()),
-		"-rpc-console=" + rpcAddr(consoleListener.Addr()),
+		"-rpc-dap=" + addrArg(dapListener.Addr()),
+		"-rpc-console=" + addrArg(consoleListener.Addr()),
 	}
 
 	if err = tmux.RunInPane(consolePane, args...); err != nil {
 		return fmt.Errorf("Error running console: %w", err)
 	}
 
-	log.Printf("Connecting to console rpc on %s", rpcAddr(consoleListener.Addr()))
+	log.Printf("Connecting to console rpc on %s", addrArg(consoleListener.Addr()))
 	d.ConsoleClient, err = rpc.NewConsoleClient(consoleListener.Addr().Network(), consoleListener.Addr().String())
 	if err != nil {
 		return fmt.Errorf("Error connecting to console: %w", err)
@@ -152,4 +153,35 @@ func (d *DAP) ClearProcess() {
 	d.Lock()
 	d.Conn = nil
 	d.Unlock()
+}
+
+func (d *DAP) ShowOutput(output string) error {
+	d.Lock()
+	defer d.Unlock()
+
+	if !d.OutputBroadcaster.inited {
+		outputPane, err := tmux.FindOrSplitOutput()
+		if err != nil {
+			return fmt.Errorf("ShowOutput: %w", err)
+		}
+
+		args := []string{
+			d.Exe,
+			"output",
+			"-addr=" + addrArg(d.OutputBroadcaster.l.Addr()),
+		}
+
+		if err = tmux.RunInPane(outputPane, args...); err != nil {
+			return fmt.Errorf("ShowOutput: %w", err)
+		}
+
+		d.OutputBroadcaster.inited = true
+	}
+
+	d.OutputBroadcaster.Broadcast(output)
+	return nil
+}
+
+func addrArg(addr net.Addr) string {
+	return addr.Network() + " " + addr.String()
 }

@@ -17,6 +17,7 @@ func main() {
 	funcs := map[string]func([]string) error{
 		"console": runConsole,
 		"nvim":    runNvim,
+		"output": runOutput,
 	}
 
 	f, ok := funcs[cmd]

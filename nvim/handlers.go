@@ -20,12 +20,15 @@ func HandleEvent(v *nvim.Nvim, d *dap.DAP) func(dap.Event) {
 				log.Printf("Error parsing event output: %s", err)
 			} else {
 				// TODO: check if category is stdout or stderr
-				log.Print(body.Output)
+				if err := d.ShowOutput(body.Output); err != nil {
+					log.Printf("Error showing event output: %s", err)
+				}
 			}
 
 		case "terminated":
 			log.Print("Debug adapter terminated.")
 			d.ConsoleClient.Quit()
+			d.OutputBroadcaster.Stop()
 			// ???: Is this the correct behavior?
 			d.Conn.Stop()
 

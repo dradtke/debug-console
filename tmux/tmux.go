@@ -19,12 +19,34 @@ func NumPanes() (int, error) {
 	return v, nil
 }
 
-func Split() error {
+func SplitConsole() error {
 	return runAll([][]string{
 		{"tmux", "split-pane", "-p", "40", "-h"},
 		{"tmux", "select-pane", "-T", "console"},
 		{"tmux", "select-pane", "-l"},
 	})
+}
+
+func SplitOutput() error {
+	return runAll([][]string{
+		{"tmux", "select-pane", "-t", "right"},
+		{"tmux", "split-pane", "-p", "40", "-v"},
+		{"tmux", "select-pane", "-T", "output"},
+		{"tmux", "select-pane", "-t", "left"},
+	})
+}
+
+func FindOrSplitOutput() (string, error) {
+	if pane, err := FindPane("output"); err != nil {
+		return "", err
+	} else if pane != "" {
+		return pane, nil
+	}
+
+	if err := SplitOutput(); err != nil {
+		return "", err
+	}
+	return FindPane("output")
 }
 
 // FindPane returns the id of the pane with the given title.
