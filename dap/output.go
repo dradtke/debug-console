@@ -1,6 +1,7 @@
 package dap
 
 import (
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"io"
@@ -9,11 +10,21 @@ import (
 	"sync"
 )
 
+type Output struct {
+	Category string `json:"category"`
+	Output   string `json:"output"`
+}
+
 // ???: Is it overengineered to support multiple connections to this?
+
+type connWithEncoder struct {
+	conn net.Conn
+	enc *gob.Encoder
+}
 
 type OutputBroadcaster struct {
 	mu              sync.Mutex
-	conns           []net.Conn
+	conns           []connWithEncoder
 	l               net.Listener
 	firstConnSeenCh chan struct{}
 	inited          bool
@@ -31,7 +42,7 @@ func (b *OutputBroadcaster) listen() {
 		}
 		b.mu.Lock()
 		firstConnSeen := len(b.conns) == 0
-		b.conns = append(b.conns, c)
+		b.conns = append(b.conns, connWithEncoder{conn: c, enc: gob.NewEncoder(c)})
 		b.mu.Unlock()
 
 		if firstConnSeen {
@@ -45,12 +56,12 @@ func NewOutputBroadcaster() (*OutputBroadcaster, error) {
 	if err != nil {
 		return nil, fmt.Errorf("BroadcastOutput: %w", err)
 	}
-	b := &OutputBroadcaster{l: l, conns: make([]net.Conn, 0, 1), firstConnSeenCh: make(chan struct{})}
+	b := &OutputBroadcaster{l: l, conns: make([]connWithEncoder, 0, 1), firstConnSeenCh: make(chan struct{})}
 	go b.listen()
 	return b, nil
 }
 
-func (b *OutputBroadcaster) Broadcast(text string) {
+func (b *OutputBroadcaster) Broadcast(output Output) {
 	// Make sure we have had at least one connection
 	<-b.firstConnSeenCh
 
@@ -60,7 +71,9 @@ func (b *OutputBroadcaster) Broadcast(text string) {
 	log.Printf("Broadcasting output to %d connections", len(b.conns))
 
 	for _, c := range b.conns {
-		fmt.Fprint(c, text)
+		if err := c.enc.Encode(output); err != nil {
+			log.Printf("error broadcasting output: %s", err)
+		}
 	}
 }
 
@@ -70,6 +83,6 @@ func (b *OutputBroadcaster) Stop() {
 
 	b.l.Close()
 	for _, c := range b.conns {
-		c.Close()
+		c.conn.Close()
 	}
 }

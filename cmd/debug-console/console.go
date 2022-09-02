@@ -12,7 +12,9 @@ import (
 )
 
 func runConsole(args []string) error {
+	clearScreen()
 	fmt.Println("Running the debug console!")
+
 	var (
 		fs         = flag.NewFlagSet("console", flag.ExitOnError)
 		rpcDap     = fs.String("rpc-dap", "", "network and address for plugin rpc")

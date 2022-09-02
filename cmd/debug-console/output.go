@@ -1,15 +1,20 @@
 package main
 
 import (
-	"bufio"
+	"encoding/gob"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"strings"
+
+	"github.com/dradtke/debug-console/dap"
 )
 
 func runOutput(args []string) error {
+	clearScreen()
+
 	var (
 		fs         = flag.NewFlagSet("output", flag.ExitOnError)
 		addr     = fs.String("addr", "", "network and address to connect to for output")
@@ -28,10 +33,16 @@ func runOutput(args []string) error {
 		return err
 	}
 
-	scanner := bufio.NewScanner(c)
-	for scanner.Scan() {
-		fmt.Println(scanner.Text())
-	}
+	dec := gob.NewDecoder(c)
+	var output dap.Output
 
-	return scanner.Err()
+	for {
+		if err := dec.Decode(&output); err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		}
+		fmt.Printf("[%s] %s", output.Category, output.Output)
+	}
 }

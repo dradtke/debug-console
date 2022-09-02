@@ -101,7 +101,7 @@ func (c *Conn) HandleOut() {
 			if err := json.Unmarshal([]byte(body), &event); err != nil {
 				log.Printf("dap stdout: error parsing event: %s", err)
 			}
-			go c.eventHandler(event)
+			c.eventHandler(event)
 
 		default:
 			log.Printf("unrecognized incoming message type: %s", parsed.Type)

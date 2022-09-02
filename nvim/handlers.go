@@ -12,15 +12,11 @@ func HandleEvent(v *nvim.Nvim, d *dap.DAP) func(dap.Event) {
 	return func(event dap.Event) {
 		switch event.Event {
 		case "output":
-			var body struct {
-				Category string `json:"category"`
-				Output   string `json:"output"`
-			}
+			var body dap.Output
 			if err := json.Unmarshal(event.Body, &body); err != nil {
 				log.Printf("Error parsing event output: %s", err)
 			} else {
-				// TODO: check if category is stdout or stderr
-				if err := d.ShowOutput(body.Output); err != nil {
+				if err := d.ShowOutput(body); err != nil {
 					log.Printf("Error showing event output: %s", err)
 				}
 			}

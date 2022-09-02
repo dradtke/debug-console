@@ -155,7 +155,7 @@ func (d *DAP) ClearProcess() {
 	d.Unlock()
 }
 
-func (d *DAP) ShowOutput(output string) error {
+func (d *DAP) ShowOutput(output Output) error {
 	d.Lock()
 	defer d.Unlock()
 
