@@ -16,8 +16,7 @@ func (c Console) ShowOutput(output string, _ *struct{}) error {
 	return nil
 }
 
-func (c Console) Quit(_ struct{}, _ *struct{}) error {
-	log.Print("Quitting")
+func (c Console) Stop(_ struct{}, _ *struct{}) error {
 	// Allow the function to return before exiting in order to avoid an "unexpected EOF" error.
 	go func() {
 		time.Sleep(100 * time.Millisecond)
@@ -44,8 +43,11 @@ func NewConsoleClient(network, addr string) (ConsoleClient, error) {
 	}
 }
 
-func (c ConsoleClient) Quit() {
-	if err := c.c.Call("Console.Quit", struct{}{}, nil); err != nil {
+func (c ConsoleClient) Stop() {
+	if c.c == nil {
+		return
+	}
+	if err := c.c.Call("Console.Stop", struct{}{}, nil); err != nil {
 		log.Printf("Error quitting debug console: %s", err)
 	}
 }

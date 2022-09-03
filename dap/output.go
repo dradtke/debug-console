@@ -2,9 +2,7 @@ package dap
 
 import (
 	"encoding/gob"
-	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"sync"
@@ -35,10 +33,7 @@ func (b *OutputBroadcaster) listen() {
 	for {
 		c, err := b.l.Accept()
 		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return
-			}
-			log.Printf("BroadcastOutput: listener failed to accept connection: %s", err)
+			return
 		}
 		b.mu.Lock()
 		firstConnSeen := len(b.conns) == 0

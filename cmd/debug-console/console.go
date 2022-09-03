@@ -8,6 +8,8 @@ import (
 	"net"
 	"strings"
 
+	"github.com/chzyer/readline"
+
 	"github.com/dradtke/debug-console/rpc"
 )
 
@@ -39,12 +41,30 @@ func runConsole(args []string) error {
 	}
 
 	rpcConsoleParts := strings.Split(*rpcConsole, " ")
-	log.Printf("Listening for incoming connections on %s %s", rpcConsoleParts[0], rpcConsoleParts[1])
+	//log.Printf("Listening for incoming connections on %s %s", rpcConsoleParts[0], rpcConsoleParts[1])
 	consoleListener, err := net.Listen(rpcConsoleParts[0], rpcConsoleParts[1])
 	if err != nil {
 		return fmt.Errorf("Error opening console rpc listener at %s: %w", *rpcConsole, err)
 	}
 
-	rpc.RunConsole(consoleListener)
+	go rpc.RunConsole(consoleListener)
+	if err := consoleLoop(); err != nil {
+		return fmt.Errorf("Error running console loop: %w", err)
+	}
+
 	return nil
+}
+
+func consoleLoop() error {
+	rl, err := readline.New("> ")
+	if err != nil {
+		return err
+	}
+	for {
+		line, err := rl.Readline()
+		if err != nil {
+			return err
+		}
+		fmt.Println(line)
+	}
 }

@@ -101,17 +101,6 @@ func HandlePanic() {
 	}
 }
 
-func VimLeave(d *dap.DAP) any {
-	return func() {
-		d.Lock()
-		defer d.Unlock()
-		if d.Conn != nil {
-			log.Println("Editor is quitting, killing running process")
-			d.Conn.Stop()
-		}
-	}
-}
-
 func Main(exe string) error {
 	if os.Getenv("NVIM") != "" {
 		if err := setLogOutput(); err != nil {
@@ -133,7 +122,7 @@ func Main(exe string) error {
 
 	plugin.Main(func(p *plugin.Plugin) error {
 		d.EventHandler = HandleEvent(p.Nvim, d) // this feels weird to do
-		p.HandleAutocmd(&plugin.AutocmdOptions{Event: "VimLeave", Pattern: "*"}, VimLeave(d))
+		p.HandleAutocmd(&plugin.AutocmdOptions{Event: "VimLeave", Pattern: "*"}, d.Stop)
 		RegisterCommands(p, d)
 		return nil
 	})

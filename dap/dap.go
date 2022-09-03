@@ -88,6 +88,18 @@ func (d *DAP) Run(f func() (Connector, error)) (conn *Conn, err error) {
 	return conn, nil
 }
 
+func (d *DAP) Stop() {
+	d.Lock()
+	defer d.Unlock()
+
+	if d.Conn != nil {
+		log.Println("Stopping running process")
+		d.Conn.Stop()
+	}
+
+	d.ConsoleClient.Stop()
+}
+
 func (d *DAP) StartConsole() error {
 	consolePane, err := tmux.FindPane("console")
 	if err != nil {

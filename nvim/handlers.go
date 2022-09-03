@@ -23,7 +23,7 @@ func HandleEvent(v *nvim.Nvim, d *dap.DAP) func(dap.Event) {
 
 		case "terminated":
 			log.Print("Debug adapter terminated.")
-			d.ConsoleClient.Quit()
+			d.ConsoleClient.Stop()
 			d.OutputBroadcaster.Stop()
 			// ???: Is this the correct behavior?
 			d.Conn.Stop()
