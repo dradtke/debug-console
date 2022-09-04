@@ -4,18 +4,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"net"
 	"strings"
-
-	"github.com/chzyer/readline"
 
 	"github.com/dradtke/debug-console/rpc"
 )
 
 func runConsole(args []string) error {
 	clearScreen()
-	fmt.Println("Running the debug console!")
 
 	var (
 		fs         = flag.NewFlagSet("console", flag.ExitOnError)
@@ -34,7 +30,7 @@ func runConsole(args []string) error {
 	}
 
 	rpcDapParts := strings.Split(*rpcDap, " ")
-	log.Printf("Connecting to dap on %s %s", rpcDapParts[0], rpcDapParts[1])
+	// log.Printf("Connecting to dap on %s %s", rpcDapParts[0], rpcDapParts[1])
 	_, err := rpc.NewDapClient(rpcDapParts[0], rpcDapParts[1])
 	if err != nil {
 		return fmt.Errorf("Error connecting to dap server: %w", err)
@@ -47,24 +43,32 @@ func runConsole(args []string) error {
 		return fmt.Errorf("Error opening console rpc listener at %s: %w", *rpcConsole, err)
 	}
 
-	go rpc.RunConsole(consoleListener)
-	if err := consoleLoop(); err != nil {
-		return fmt.Errorf("Error running console loop: %w", err)
+	console, err := rpc.NewConsole()
+	if err != nil {
+		return fmt.Errorf("Error creating console: %w", err)
+	}
+	go console.Listen(consoleListener)
+
+	if err := consoleInputLoop(console); err != nil {
+		fmt.Println(err)
 	}
 
 	return nil
 }
 
-func consoleLoop() error {
-	rl, err := readline.New("> ")
-	if err != nil {
-		return err
-	}
+func consoleInputLoop(console rpc.Console) error {
 	for {
-		line, err := rl.Readline()
-		if err != nil {
-			return err
+		<-console.Stops
+
+		input: for {
+			line, err := console.Prompt.Readline()
+			if err != nil {
+				return err
+			}
+			if line == "c" || line == "continue" {
+				break input
+			}
+			fmt.Println(line)
 		}
-		fmt.Println(line)
 	}
 }

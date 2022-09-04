@@ -8,6 +8,7 @@ import (
 	"github.com/neovim/go-client/nvim"
 )
 
+// TODO: move non-Neovim-specific event handling to the dap package
 func HandleEvent(v *nvim.Nvim, d *dap.DAP) func(dap.Event) {
 	return func(event dap.Event) {
 		switch event.Event {
@@ -33,15 +34,11 @@ func HandleEvent(v *nvim.Nvim, d *dap.DAP) func(dap.Event) {
 
 		case "stopped":
 			log.Print("Stopped")
-			var body struct {
-				AllThreadsStopped bool   `json:"allThreadsStopped"`
-				Reason            string `json:"reason"`
-				ThreadID          int    `json:"threadId"`
-			}
+			var body dap.Stopped
 			if err := json.Unmarshal(event.Body, &body); err != nil {
 				log.Printf("Error parsing body: %s", err)
 			}
-			handleStopped(v, body.Reason)
+			handleStopped(v, d, body.Reason)
 
 		default:
 			log.Printf("Don't know how to handle event: %s", event.Event)
@@ -49,12 +46,15 @@ func HandleEvent(v *nvim.Nvim, d *dap.DAP) func(dap.Event) {
 	}
 }
 
-func handleStopped(v *nvim.Nvim, reason string) {
+func handleStopped(v *nvim.Nvim, d *dap.DAP, reason string) {
 	switch reason {
 	case "breakpoint":
-		log.Print("Stopped at a breakpoint")
 		v.Notify("Stopped at a breakpoint", nvim.LogInfoLevel, make(map[string]any))
+		d.ConsoleClient.HandleStopped()
 		// TODO: get breakpoint information
+
+	default:
+		log.Printf("Stopped for unknown reason: %s", reason)
 	}
 }
 
