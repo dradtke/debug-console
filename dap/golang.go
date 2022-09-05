@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/dradtke/debug-console/types"
 )
 
 // dlv is at ~/.asdf/installs/golang/1.18.3/packages/bin/dlv
@@ -27,7 +29,7 @@ func GoConnector(dapDir string) func() (Connector, error) {
 	}
 }
 
-func (d *DAP) GoLaunch(filepath string) (Response, error) {
+func (d *DAP) GoLaunch(filepath string) (types.Response, error) {
 	const dlv = "/home/damien/.asdf/installs/golang/1.18.3/packages/bin/dlv"
 	log.Println("Launching Delve!")
 	args := map[string]any{

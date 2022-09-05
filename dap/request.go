@@ -1,6 +1,8 @@
 package dap
 
-func (p *Conn) Initialize() (Response, error) {
+import "github.com/dradtke/debug-console/types"
+
+func (p *Conn) Initialize() (types.Response, error) {
 	type Args struct {
 		AdapterID                    string `json:"adapterID"`
 		PathFormat                   string `json:"pathFormat"`
@@ -18,7 +20,7 @@ func (p *Conn) Initialize() (Response, error) {
 	})
 }
 
-func (p *Conn) ConfigurationDone() (Response, error) {
+func (p *Conn) ConfigurationDone() (types.Response, error) {
 	return p.SendRequest("configurationDone", struct{}{})
 }
 

@@ -31,7 +31,7 @@ func runConsole(args []string) error {
 
 	rpcDapParts := strings.Split(*rpcDap, " ")
 	// log.Printf("Connecting to dap on %s %s", rpcDapParts[0], rpcDapParts[1])
-	_, err := rpc.NewDapClient(rpcDapParts[0], rpcDapParts[1])
+	dapClient, err := rpc.NewDapClient(rpcDapParts[0], rpcDapParts[1])
 	if err != nil {
 		return fmt.Errorf("Error connecting to dap server: %w", err)
 	}
@@ -49,15 +49,16 @@ func runConsole(args []string) error {
 	}
 	go console.Listen(consoleListener)
 
-	if err := consoleInputLoop(console); err != nil {
+	if err := consoleInputLoop(console, dapClient); err != nil {
 		fmt.Println(err)
 	}
 
 	return nil
 }
 
-func consoleInputLoop(console rpc.Console) error {
+func consoleInputLoop(console rpc.Console, dapClient rpc.DapClient) error {
 	for {
+		// TODO: see if the program is running or not?
 		<-console.Stops
 
 		input: for {
@@ -65,10 +66,20 @@ func consoleInputLoop(console rpc.Console) error {
 			if err != nil {
 				return err
 			}
-			if line == "c" || line == "continue" {
+			keepLooping := handleCommand(line, dapClient)
+			if !keepLooping {
 				break input
 			}
-			fmt.Println(line)
 		}
 	}
+}
+
+func handleCommand(line string, dapClient rpc.DapClient) bool {
+	switch line {
+	case "c", "continue":
+		dapClient.Continue()
+		return false
+	}
+
+	return true
 }

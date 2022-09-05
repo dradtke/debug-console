@@ -5,12 +5,13 @@ import (
 	"log"
 
 	"github.com/dradtke/debug-console/dap"
+	"github.com/dradtke/debug-console/types"
 	"github.com/neovim/go-client/nvim"
 )
 
 // TODO: move non-Neovim-specific event handling to the dap package
-func HandleEvent(v *nvim.Nvim, d *dap.DAP) func(dap.Event) {
-	return func(event dap.Event) {
+func HandleEvent(v *nvim.Nvim, d *dap.DAP) types.EventHandler {
+	return func(event types.Event) {
 		switch event.Event {
 		case "output":
 			var body dap.Output

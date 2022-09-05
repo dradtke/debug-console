@@ -10,6 +10,8 @@ import (
 	"log"
 	"os/exec"
 	"sync"
+
+	"github.com/dradtke/debug-console/types"
 )
 
 type Conn struct {
@@ -17,8 +19,8 @@ type Conn struct {
 	out, err           io.ReadCloser
 	in                 io.WriteCloser
 	inMu               sync.Mutex
-	eventHandler       func(Event)
-	responseHandlers   map[int64]chan<- Response
+	eventHandler       func(types.Event)
+	responseHandlers   map[int64]chan<- types.Response
 	responseHandlersMu sync.Mutex
 }
 
@@ -82,7 +84,7 @@ func (c *Conn) HandleOut() {
 
 		switch parsed.Type {
 		case "response":
-			var resp Response
+			var resp types.Response
 			if err := json.Unmarshal([]byte(body), &resp); err != nil {
 				log.Printf("dap stdout: error parsing response: %s", err)
 			}
@@ -97,7 +99,7 @@ func (c *Conn) HandleOut() {
 			}
 
 		case "event":
-			var event Event
+			var event types.Event
 			if err := json.Unmarshal([]byte(body), &event); err != nil {
 				log.Printf("dap stdout: error parsing event: %s", err)
 			}
@@ -109,9 +111,9 @@ func (c *Conn) HandleOut() {
 	}
 }
 
-func (c *Conn) SendRequest(name string, args any) (Response, error) {
+func (c *Conn) SendRequest(name string, args any) (types.Response, error) {
 	req := NewRequest(name, args)
-	ch := make(chan Response, 1)
+	ch := make(chan types.Response, 1)
 
 	c.responseHandlersMu.Lock()
 	c.responseHandlers[req.Seq] = ch
@@ -121,12 +123,12 @@ func (c *Conn) SendRequest(name string, args any) (Response, error) {
 		c.responseHandlersMu.Lock()
 		delete(c.responseHandlers, req.Seq)
 		c.responseHandlersMu.Unlock()
-		return Response{}, fmt.Errorf("Error sending request: %s: %w", name, err)
+		return types.Response{}, fmt.Errorf("Error sending request: %s: %w", name, err)
 	}
 
 	resp := <-ch
 	if !resp.Success {
-		var errorResp ErrorResponse
+		var errorResp types.ErrorResponse
 		if err := json.Unmarshal(resp.Body, &errorResp); err != nil {
 			return resp, fmt.Errorf("Error unmarshaling error response: %w", err)
 		}

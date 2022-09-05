@@ -4,18 +4,20 @@ import (
 	"fmt"
 	"net"
 	"os/exec"
+
+	"github.com/dradtke/debug-console/types"
 )
 
 // Connector is an interface describing how to connect to a debug adapter.
 // The two main options are to spawn a subprocess, or to connect to one that
 // is already running.
 type Connector interface {
-	Connect(eventHandler func(Event)) (*Conn, error)
+	Connect(eventHandler func(types.Event)) (*Conn, error)
 }
 
 type Subprocess []string
 
-func (s Subprocess) Connect(eventHandler func(Event)) (*Conn, error) {
+func (s Subprocess) Connect(eventHandler func(types.Event)) (*Conn, error) {
 	cmd := exec.Command(s[0], s[1:]...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -38,7 +40,7 @@ func (s Subprocess) Connect(eventHandler func(Event)) (*Conn, error) {
 		err:              stderr,
 		in:               stdin,
 		eventHandler:     eventHandler,
-		responseHandlers: make(map[int64]chan<- Response),
+		responseHandlers: make(map[int64]chan<- types.Response),
 	}
 	go conn.HandleOut()
 	go conn.HandleErr()
@@ -49,7 +51,7 @@ type Connection struct {
 	Network, Address string
 }
 
-func (c Connection) Connect(eventHandler func(Event)) (*Conn, error) {
+func (c Connection) Connect(eventHandler func(types.Event)) (*Conn, error) {
 	rawConn, err := net.Dial(c.Network, c.Address)
 	if err != nil {
 		return nil, fmt.Errorf("Error connecting to debug adapter at %s: %w", c.Address, err)
@@ -58,7 +60,7 @@ func (c Connection) Connect(eventHandler func(Event)) (*Conn, error) {
 		out:              rawConn,
 		in:               rawConn,
 		eventHandler:     eventHandler,
-		responseHandlers: make(map[int64]chan<- Response),
+		responseHandlers: make(map[int64]chan<- types.Response),
 	}
 	go conn.HandleOut()
 	// go c.HandleStderr()

@@ -10,6 +10,7 @@ import (
 
 	"github.com/dradtke/debug-console/rpc"
 	"github.com/dradtke/debug-console/tmux"
+	"github.com/dradtke/debug-console/types"
 )
 
 type DAP struct {
@@ -19,7 +20,7 @@ type DAP struct {
 	Exe string
 	// Dir is where debug adapters are saved locally.
 	Dir          string
-	EventHandler func(Event)
+	EventHandler types.EventHandler
 	Conn         *Conn
 	Capabilities map[string]bool
 	ConsoleClient rpc.ConsoleClient
@@ -129,7 +130,8 @@ func (d *DAP) StartConsole() error {
 		return fmt.Errorf("Error releasing console rpc listener: %w", err)
 	}
 
-	go rpc.RunDap(dapListener)
+	dapServer := rpc.NewDap(d.SendRequest)
+	go dapServer.Listen(dapListener)
 
 	args := []string{
 		d.Exe,
@@ -151,12 +153,12 @@ func (d *DAP) StartConsole() error {
 	return nil
 }
 
-func (d *DAP) SendRequest(name string, args any) (Response, error) {
+func (d *DAP) SendRequest(name string, args any) (types.Response, error) {
 	d.Lock()
 	p := d.Conn
 	d.Unlock()
 	if p == nil {
-		return Response{}, errors.New("No process running")
+		return types.Response{}, errors.New("No process running")
 	}
 	return p.SendRequest(name, args)
 }

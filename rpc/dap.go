@@ -5,19 +5,29 @@ import (
 	"log"
 	"net"
 	"net/rpc"
+
+	"github.com/dradtke/debug-console/types"
 )
 
-type Dap struct{}
-
-func (d Dap) Continue(_ struct{}, _ *struct{}) error {
-	log.Print("Continuing")
-	return nil
+type Dap struct{
+	RequestSender types.RequestSender
 }
 
-func RunDap(listener net.Listener) {
+func NewDap(requestSender types.RequestSender) Dap {
+	return Dap{
+		RequestSender: requestSender,
+	}
+}
+
+func (d Dap) Listen(listener net.Listener) {
 	s := rpc.NewServer()
-	s.Register(Dap{})
+	s.Register(d)
 	s.Accept(listener)
+}
+
+func (d Dap) Continue(_ struct{}, _ *struct{}) error {
+	_, err := (d.RequestSender)("continue", nil)
+	return err
 }
 
 type DapClient struct {
@@ -29,5 +39,14 @@ func NewDapClient(network, addr string) (DapClient, error) {
 		return DapClient{}, fmt.Errorf("rpc: Error connecting to dap server: %w", err)
 	} else {
 		return DapClient{c}, nil
+	}
+}
+
+func (d DapClient) Continue() {
+	if d.c == nil {
+		return
+	}
+	if err := d.c.Call("Dap.Continue", struct{}{}, nil); err != nil {
+		log.Printf("Dap.Continue: %s", err)
 	}
 }
