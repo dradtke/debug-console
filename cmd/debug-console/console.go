@@ -4,10 +4,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"net"
+	"net/rpc"
 	"strings"
 
-	"github.com/dradtke/debug-console/rpc"
+	"github.com/dradtke/debug-console/console"
+	"github.com/dradtke/debug-console/util"
 )
 
 func runConsole(args []string) error {
@@ -31,7 +34,7 @@ func runConsole(args []string) error {
 
 	rpcDapParts := strings.Split(*rpcDap, " ")
 	// log.Printf("Connecting to dap on %s %s", rpcDapParts[0], rpcDapParts[1])
-	dapClient, err := rpc.NewDapClient(rpcDapParts[0], rpcDapParts[1])
+	dapClient, err := util.TryDial(rpcDapParts[0], rpcDapParts[1])
 	if err != nil {
 		return fmt.Errorf("Error connecting to dap server: %w", err)
 	}
@@ -43,11 +46,14 @@ func runConsole(args []string) error {
 		return fmt.Errorf("Error opening console rpc listener at %s: %w", *rpcConsole, err)
 	}
 
-	console, err := rpc.NewConsole()
+	console, err := console.NewConsole()
 	if err != nil {
 		return fmt.Errorf("Error creating console: %w", err)
 	}
-	go console.Listen(consoleListener)
+
+	s := rpc.NewServer()
+	s.Register(console)
+	go s.Accept(consoleListener)
 
 	if err := consoleInputLoop(console, dapClient); err != nil {
 		fmt.Println(err)
@@ -56,13 +62,14 @@ func runConsole(args []string) error {
 	return nil
 }
 
-func consoleInputLoop(console rpc.Console, dapClient rpc.DapClient) error {
+func consoleInputLoop(c console.ConsoleService, dapClient *rpc.Client) error {
 	for {
 		// TODO: see if the program is running or not?
-		<-console.Stops
+		<-c.Stops
 
-		input: for {
-			line, err := console.Prompt.Readline()
+	input:
+		for {
+			line, err := c.Prompt.Readline()
 			if err != nil {
 				return err
 			}
@@ -74,10 +81,12 @@ func consoleInputLoop(console rpc.Console, dapClient rpc.DapClient) error {
 	}
 }
 
-func handleCommand(line string, dapClient rpc.DapClient) bool {
+func handleCommand(line string, dapClient *rpc.Client) bool {
 	switch line {
 	case "c", "continue":
-		dapClient.Continue()
+		if err := dapClient.Call("DAPService.Continue", struct{}{}, nil); err != nil {
+			log.Printf("Error calling continue: %s", err)
+		}
 		return false
 	}
 

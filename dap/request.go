@@ -24,4 +24,14 @@ func (p *Conn) ConfigurationDone() (types.Response, error) {
 	return p.SendRequest("configurationDone", struct{}{})
 }
 
+func (d *DAP) Continue() error {
+	d.Lock()
+	defer d.Unlock()
+	_, err := d.Conn.SendRequest("continue", nil)
+	if err == nil {
+		d.StoppedLocation = nil
+	}
+	return err
+}
+
 // TODO: Add more request types here

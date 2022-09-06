@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/rpc"
 	"sync"
 
-	"github.com/dradtke/debug-console/rpc"
 	"github.com/dradtke/debug-console/tmux"
+	"github.com/dradtke/debug-console/util"
 	"github.com/dradtke/debug-console/types"
 )
 
@@ -23,7 +24,7 @@ type DAP struct {
 	EventHandler      types.EventHandler
 	Conn              *Conn
 	Capabilities      map[string]bool
-	ConsoleClient     rpc.ConsoleClient
+	ConsoleClient     *rpc.Client
 	OutputBroadcaster *OutputBroadcaster
 	StoppedLocation   *types.StackFrame
 }
@@ -99,7 +100,11 @@ func (d *DAP) Stop() {
 		d.Conn.Stop()
 	}
 
-	d.ConsoleClient.Stop()
+	d.OutputBroadcaster.Stop()
+
+	if err := d.ConsoleClient.Call("ConsoleService.Stop", struct{}{}, nil); err != nil {
+		log.Printf("Error stopping console: %s", err)
+	}
 }
 
 func (d *DAP) StartConsole() error {
@@ -131,8 +136,9 @@ func (d *DAP) StartConsole() error {
 		return fmt.Errorf("Error releasing console rpc listener: %w", err)
 	}
 
-	dapServer := rpc.NewDap(d.SendRequest)
-	go dapServer.Listen(dapListener)
+	dapServer := rpc.NewServer()
+	dapServer.Register(DAPService{d})
+	go dapServer.Accept(dapListener)
 
 	args := []string{
 		d.Exe,
@@ -146,7 +152,7 @@ func (d *DAP) StartConsole() error {
 	}
 
 	log.Printf("Connecting to console rpc on %s", addrArg(consoleListener.Addr()))
-	d.ConsoleClient, err = rpc.NewConsoleClient(consoleListener.Addr().Network(), consoleListener.Addr().String())
+	d.ConsoleClient, err = util.TryDial(consoleListener.Addr().Network(), consoleListener.Addr().String())
 	if err != nil {
 		return fmt.Errorf("Error connecting to console: %w", err)
 	}
@@ -168,6 +174,43 @@ func (d *DAP) ClearProcess() {
 	d.Lock()
 	d.Conn = nil
 	d.Unlock()
+}
+
+func (d *DAP) HandleStopped(stopped types.Stopped) (*types.StackFrame, error) {
+	if err := d.ConsoleClient.Call("ConsoleService.HandleStopped", struct{}{}, nil); err != nil {
+		log.Printf("Error invoking ConsoleService.HandleStopped: %s", err)
+	}
+	if stopped.ThreadID == nil {
+		return nil, nil
+	}
+
+	resp, err := d.SendRequest("stackTrace", map[string]any{
+		"threadId": *stopped.ThreadID,
+		"levels":   1,
+		"format": map[string]any{
+			"line": true,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Error getting stack trace: %w", err)
+	}
+
+	var body struct {
+		StackFrames []types.StackFrame `json:"stackFrames"`
+	}
+	if err := json.Unmarshal(resp.Body, &body); err != nil {
+		return nil, fmt.Errorf("Error parsing stackTrace response: %w", err)
+	}
+
+	if len(body.StackFrames) == 0 {
+		return nil, nil
+	}
+
+	stackFrame := body.StackFrames[0]
+	d.Lock()
+	d.StoppedLocation = &stackFrame
+	d.Unlock()
+	return &stackFrame, nil
 }
 
 func (d *DAP) ShowOutput(output Output) error {

@@ -1,4 +1,4 @@
-package dap
+package types
 
 // https://microsoft.github.io/debug-adapter-protocol/specification#Events_Stopped
 type Stopped struct {

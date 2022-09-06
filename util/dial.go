@@ -1,4 +1,4 @@
-package rpc
+package util
 
 import (
 	"errors"
@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func tryDial(network, addr string) (*rpc.Client, error) {
+func TryDial(network, addr string) (*rpc.Client, error) {
 	for try := 0; try < 6; try++ {
 		c, err := rpc.Dial(network, addr)
 		if err == nil {
