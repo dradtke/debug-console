@@ -24,6 +24,7 @@ endfunction
 call remote#host#Register('debug-console', 'x', function('s:Start'))
 
 sign define debug-console-breakpoint text=B
+sign define debug-console-current-location text=>
 
 " The end of this file will be updated when `make` is run with a new manifest.
 

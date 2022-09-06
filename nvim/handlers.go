@@ -13,6 +13,7 @@ import (
 // TODO: move non-Neovim-specific event handling to the dap package
 func HandleEvent(v *nvim.Nvim, d *dap.DAP) types.EventHandler {
 	return func(event types.Event) {
+		log.Printf("received event: %s", event.Event)
 		switch event.Event {
 		case "output":
 			var body dap.Output
@@ -25,6 +26,7 @@ func HandleEvent(v *nvim.Nvim, d *dap.DAP) types.EventHandler {
 			}
 
 		case "terminated":
+			RemoveAllSigns(v, SignGroupCurrentLocation)
 			log.Print("Debug adapter terminated.")
 			d.Stop()
 
@@ -42,9 +44,24 @@ func HandleEvent(v *nvim.Nvim, d *dap.DAP) types.EventHandler {
 					log.Printf("Error handling stop: %s", err)
 					return
 				}
-				msg := fmt.Sprintf("Stopped (%s) at %s:%d", stopped.Reason, *stackFrame.Source.Name, stackFrame.Line)
-				Notify(v, msg, nvim.LogInfoLevel)
+				if stackFrame.Source.Name != nil {
+					msg := fmt.Sprintf("Stopped (%s) at %s:%d", stopped.Reason, *stackFrame.Source.Name, stackFrame.Line)
+					Notify(v, msg, nvim.LogInfoLevel)
+				}
+				if stackFrame.Source.Path != nil {
+					RemoveAllSigns(v, SignGroupCurrentLocation)
+					if err := PlaceSign(v, SignNameCurrentLocation, SignInfo{
+						Group:         SignGroupCurrentLocation,
+						BufferPattern: *stackFrame.Source.Path,
+						LineNumber:    stackFrame.Line,
+					}, 99); err != nil {
+						log.Printf("Error placing current location sign: %s", err)
+					}
+				}
 			}()
+
+		case "continued":
+			RemoveAllSigns(v, SignGroupCurrentLocation)
 
 		default:
 			log.Printf("Don't know how to handle event: %s", event.Event)

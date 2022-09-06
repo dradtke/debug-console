@@ -14,6 +14,9 @@ import (
 const (
 	SignGroupBreakpoint = "debug-console-breakpoint"
 	SignNameBreakpoint  = "debug-console-breakpoint"
+
+	SignGroupCurrentLocation = "debug-console-current-location"
+	SignNameCurrentLocation = "debug-console-current-location"
 )
 
 var (

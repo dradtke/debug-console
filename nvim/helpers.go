@@ -18,8 +18,10 @@ type SignGetPlacedResult struct {
 type SignInfo struct {
 	ID, LineNumber int
 	Buffer         nvim.Buffer
-	Group          string
-	Exists         bool
+	// BufferPattern is used if Buffer is 0
+	BufferPattern string
+	Group         string
+	Exists        bool
 }
 
 func GetSignAt(v *nvim.Nvim, signGroup, buffer string, lineNum int) (SignInfo, error) {
@@ -72,7 +74,7 @@ func GetAllSigns(v *nvim.Nvim, signGroup string) (map[nvim.Buffer][]SignInfo, er
 			})
 		}
 	}
-	
+
 	return signs, nil
 }
 
@@ -84,10 +86,16 @@ func BufferPath(v *nvim.Nvim, buffer nvim.Buffer) (string, error) {
 	return result, nil
 }
 
-func PlaceSign(v *nvim.Nvim, name string, sign SignInfo) error {
-	if err := v.Call("sign_place", nil, 0, sign.Group, name, sign.Buffer, map[string]any{
+func PlaceSign(v *nvim.Nvim, name string, sign SignInfo, priority int) error {
+	var buffer any
+	if sign.Buffer != 0 {
+		buffer = sign.Buffer
+	} else {
+		buffer = sign.BufferPattern
+	}
+	if err := v.Call("sign_place", nil, 0, sign.Group, name, buffer, map[string]any{
 		"lnum":     sign.LineNumber,
-		"priority": 99,
+		"priority": priority,
 	}); err != nil {
 		return fmt.Errorf("PlaceSign: %w", err)
 	}
@@ -100,6 +108,13 @@ func RemoveSign(v *nvim.Nvim, sign SignInfo) error {
 		"id":     sign.ID,
 	}); err != nil {
 		return fmt.Errorf("RemoveSign: %w", err)
+	}
+	return nil
+}
+
+func RemoveAllSigns(v *nvim.Nvim, signGroup string) error {
+	if err := v.Call("sign_unplace", nil, signGroup, map[string]any{}); err != nil {
+		return fmt.Errorf("RemoveAllSigns: %w", err)
 	}
 	return nil
 }

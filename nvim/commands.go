@@ -62,8 +62,7 @@ func ToggleBreakpoint(d *dap.DAP) any {
 				return fmt.Errorf("ToggleBreakpoint: %w", err)
 			}
 		} else {
-			// ???: What name should be used here?
-			if err := PlaceSign(v, SignNameBreakpoint, sign); err != nil {
+			if err := PlaceSign(v, SignNameBreakpoint, sign, 98); err != nil {
 				return fmt.Errorf("ToggleBreakpoint: %w", err)
 			}
 		}
