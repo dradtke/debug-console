@@ -26,6 +26,7 @@ func (d Dap) Listen(listener net.Listener) {
 }
 
 func (d Dap) Continue(_ struct{}, _ *struct{}) error {
+	// TODO: call d.Continue() somehow without an import cycle
 	_, err := (d.RequestSender)("continue", nil)
 	return err
 }

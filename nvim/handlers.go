@@ -2,6 +2,7 @@ package nvim
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 
 	"github.com/dradtke/debug-console/dap"
@@ -39,7 +40,8 @@ func HandleEvent(v *nvim.Nvim, d *dap.DAP) types.EventHandler {
 			if err := json.Unmarshal(event.Body, &body); err != nil {
 				log.Printf("Error parsing body: %s", err)
 			}
-			handleStopped(v, d, body.Reason)
+			log.Printf("%+v", body)
+			handleStopped(v, d, body)
 
 		default:
 			log.Printf("Don't know how to handle event: %s", event.Event)
@@ -47,15 +49,43 @@ func HandleEvent(v *nvim.Nvim, d *dap.DAP) types.EventHandler {
 	}
 }
 
-func handleStopped(v *nvim.Nvim, d *dap.DAP, reason string) {
-	switch reason {
-	case "breakpoint":
-		v.Notify("Stopped at a breakpoint", nvim.LogInfoLevel, make(map[string]any))
-		d.ConsoleClient.HandleStopped()
-		// TODO: get breakpoint information
+func handleStopped(v *nvim.Nvim, d *dap.DAP, body dap.Stopped) {
+	d.ConsoleClient.HandleStopped()
+	if body.ThreadID != nil {
+		go getStoppedAt(v, d, body)
+	}
+}
 
-	default:
-		log.Printf("Stopped for unknown reason: %s", reason)
+func getStoppedAt(v *nvim.Nvim, d *dap.DAP, stopped dap.Stopped) {
+	resp, err := d.SendRequest("stackTrace", map[string]any{
+		"threadId": *stopped.ThreadID,
+		"levels":   1,
+		"format": map[string]any{
+			"line": true,
+		},
+	})
+	if err != nil {
+		log.Printf("Error getting stack trace: %s", err)
+		return
+	}
+
+	var body struct {
+		StackFrames []types.StackFrame `json:"stackFrames"`
+	}
+	if err := json.Unmarshal(resp.Body, &body); err != nil {
+		log.Printf("Error parsing stackTrace response: %s", err)
+		return
+	}
+
+	if len(body.StackFrames) > 0 {
+		stackFrame := body.StackFrames[0]
+		d.Lock()
+		d.StoppedLocation = &stackFrame
+		d.Unlock()
+		if stackFrame.Source.Name != nil {
+			msg := fmt.Sprintf("Stopped (%s) at %s:%d", stopped.Reason, *stackFrame.Source.Name, stackFrame.Line)
+			Notify(v, msg, nvim.LogInfoLevel)
+		}
 	}
 }
 

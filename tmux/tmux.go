@@ -19,6 +19,8 @@ func NumPanes() (int, error) {
 	return v, nil
 }
 
+// TODO: ensure that these splits only take effect in the same tmux pane as the editor,
+// even if it is not currently selected.
 func SplitConsole() error {
 	return runAll([][]string{
 		{"tmux", "split-pane", "-p", "40", "-h"},

@@ -19,12 +19,13 @@ type DAP struct {
 	// Exe is the executable, used for launching the console.
 	Exe string
 	// Dir is where debug adapters are saved locally.
-	Dir          string
-	EventHandler types.EventHandler
-	Conn         *Conn
-	Capabilities map[string]bool
-	ConsoleClient rpc.ConsoleClient
+	Dir               string
+	EventHandler      types.EventHandler
+	Conn              *Conn
+	Capabilities      map[string]bool
+	ConsoleClient     rpc.ConsoleClient
 	OutputBroadcaster *OutputBroadcaster
+	StoppedLocation   *types.StackFrame
 }
 
 type DapCommandFunc func(string) ([]string, error)
