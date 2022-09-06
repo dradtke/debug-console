@@ -29,6 +29,7 @@ sign define debug-console-breakpoint text=B
 
 call remote#host#RegisterPlugin('debug-console', '0', [
 \ {'type': 'autocmd', 'name': 'VimLeave', 'sync': 0, 'opts': {'pattern': '*'}},
+\ {'type': 'command', 'name': 'CurrentLocation', 'sync': 1, 'opts': {}},
 \ {'type': 'command', 'name': 'DebugRun', 'sync': 1, 'opts': {'eval': '{''Path'': expand(''%:p''), ''Filetype'': getbufvar(bufnr(''%''), ''&filetype'')}'}},
 \ {'type': 'command', 'name': 'ToggleBreakpoint', 'sync': 1, 'opts': {}},
 \ ])

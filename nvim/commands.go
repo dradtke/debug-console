@@ -12,6 +12,7 @@ import (
 func RegisterCommands(p *plugin.Plugin, d *dap.DAP) {
 	p.HandleCommand(&plugin.CommandOptions{Name: "DebugRun", Eval: "*"}, DebugRun(d))
 	p.HandleCommand(&plugin.CommandOptions{Name: "ToggleBreakpoint"}, ToggleBreakpoint(d))
+	p.HandleCommand(&plugin.CommandOptions{Name: "CurrentLocation"}, CurrentLocation(d))
 }
 
 func DebugRun(d *dap.DAP) any {
@@ -68,5 +69,17 @@ func ToggleBreakpoint(d *dap.DAP) any {
 		}
 
 		return nil
+	}
+}
+
+func CurrentLocation(d *dap.DAP) any {
+	return func(v *nvim.Nvim) error {
+		d.Lock()
+		defer d.Unlock()
+		if d.StoppedLocation == nil || d.StoppedLocation.Source == nil || d.StoppedLocation.Source.Path == nil {
+			Notify(v, "No stopped location", nvim.LogWarnLevel)
+			return nil
+		}
+		return v.Command(fmt.Sprintf("keepalt edit +%d %s", d.StoppedLocation.Line, *d.StoppedLocation.Source.Path))
 	}
 }
