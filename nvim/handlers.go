@@ -61,6 +61,7 @@ func HandleEvent(v *nvim.Nvim, d *dap.DAP) types.EventHandler {
 			}()
 
 		case "continued":
+			// TODO: remove current location?
 			RemoveAllSigns(v, SignGroupCurrentLocation)
 
 		default:

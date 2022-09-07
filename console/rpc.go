@@ -13,7 +13,7 @@ type ConsoleService struct{
 }
 
 func NewConsole() (ConsoleService, error) {
-	rl, err := readline.New("> ")
+	rl, err := readline.New("debug> ")
 	if err != nil {
 		return ConsoleService{}, err
 	}

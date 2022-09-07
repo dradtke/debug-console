@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/dradtke/debug-console/console"
+	"github.com/dradtke/debug-console/types"
 	"github.com/dradtke/debug-console/util"
 )
 
@@ -65,6 +66,7 @@ func runConsole(args []string) error {
 func consoleInputLoop(c console.ConsoleService, dapClient *rpc.Client) error {
 	for {
 		// TODO: see if the program is running or not?
+		fmt.Println("Running...")
 		<-c.Stops
 
 	input:
@@ -81,13 +83,25 @@ func consoleInputLoop(c console.ConsoleService, dapClient *rpc.Client) error {
 	}
 }
 
-func handleCommand(line string, dapClient *rpc.Client) bool {
+func handleCommand(line string, dapClient *rpc.Client) (keepLooping bool) {
 	switch line {
 	case "c", "continue":
 		if err := dapClient.Call("DAPService.Continue", struct{}{}, nil); err != nil {
 			log.Printf("Error calling continue: %s", err)
 		}
 		return false
+
+	default:
+		var resp types.EvaluateResponse
+		if err := dapClient.Call("DAPService.Evaluate", types.EvaluateRequest{
+			Expression: line,
+			Context:    "repl",
+		}, &resp); err != nil {
+			log.Printf("Error evaluating expression: %s", err)
+		} else {
+			fmt.Println(resp.Result)
+		}
+		return true
 	}
 
 	return true

@@ -1,6 +1,11 @@
 package dap
 
-import "github.com/dradtke/debug-console/types"
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/dradtke/debug-console/types"
+)
 
 func (p *Conn) Initialize() (types.Response, error) {
 	type Args struct {
@@ -32,6 +37,20 @@ func (d *DAP) Continue() error {
 		d.StoppedLocation = nil
 	}
 	return err
+}
+
+func (p *Conn) Evaluate(req types.EvaluateRequest) (string, error) {
+	resp, err := p.SendRequest("evaluate", req)
+	if err != nil {
+		return "", fmt.Errorf("Error evaluating expression: %w", err)
+	}
+
+	var body types.EvaluateResponse
+	if err := json.Unmarshal(resp.Body, &body); err != nil {
+		return "", fmt.Errorf("Error parsing evaluate response: %w", err)
+	}
+
+	return body.Result, nil
 }
 
 // TODO: Add more request types here
