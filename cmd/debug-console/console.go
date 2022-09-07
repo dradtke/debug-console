@@ -97,12 +97,10 @@ func handleCommand(line string, dapClient *rpc.Client) (keepLooping bool) {
 			Expression: line,
 			Context:    "repl",
 		}, &resp); err != nil {
-			log.Printf("Error evaluating expression: %s", err)
+			log.Print(err)
 		} else {
 			fmt.Println(resp.Result)
 		}
 		return true
 	}
-
-	return true
 }

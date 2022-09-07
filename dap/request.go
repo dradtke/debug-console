@@ -42,7 +42,7 @@ func (d *DAP) Continue() error {
 func (p *Conn) Evaluate(req types.EvaluateRequest) (string, error) {
 	resp, err := p.SendRequest("evaluate", req)
 	if err != nil {
-		return "", fmt.Errorf("Error evaluating expression: %w", err)
+		return "", err
 	}
 
 	var body types.EvaluateResponse
