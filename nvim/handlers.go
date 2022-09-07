@@ -34,7 +34,7 @@ func HandleEvent(v *nvim.Nvim, d *dap.DAP) types.EventHandler {
 			log.Print("Debug adapter initialized")
 
 		case "stopped":
-			var stopped types.Stopped
+			var stopped types.StoppedEvent
 			if err := json.Unmarshal(event.Body, &stopped); err != nil {
 				log.Printf("Error parsing body: %s", err)
 			}

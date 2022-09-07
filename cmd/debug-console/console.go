@@ -93,7 +93,7 @@ func handleCommand(line string, dapClient *rpc.Client) (keepLooping bool) {
 
 	default:
 		var resp types.EvaluateResponse
-		if err := dapClient.Call("DAPService.Evaluate", types.EvaluateRequest{
+		if err := dapClient.Call("DAPService.Evaluate", types.EvaluateArguments{
 			Expression: line,
 			Context:    "repl",
 		}, &resp); err != nil {

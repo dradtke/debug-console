@@ -41,7 +41,7 @@ func (d *DAP) GoLaunch(filepath string) (types.Response, error) {
 	if strings.HasSuffix(filepath, "_test.go") {
 		args["mode"] = "test"
 	}
-	return d.SendRequest("launch", args)
+	return d.SendRequest(types.NewLaunchRequest(args))
 }
 
 func DownloadGo(dir string) error {

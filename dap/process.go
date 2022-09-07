@@ -111,19 +111,18 @@ func (c *Conn) HandleOut() {
 	}
 }
 
-func (c *Conn) SendRequest(name string, args any) (types.Response, error) {
-	req := NewRequest(name, args)
+func (c *Conn) SendRequest(req types.Request) (types.Response, error) {
 	ch := make(chan types.Response, 1)
 
 	c.responseHandlersMu.Lock()
-	c.responseHandlers[req.Seq] = ch
+	c.responseHandlers[req.Seq()] = ch
 	c.responseHandlersMu.Unlock()
 
 	if err := c.SendMessage(req); err != nil {
 		c.responseHandlersMu.Lock()
-		delete(c.responseHandlers, req.Seq)
+		delete(c.responseHandlers, req.Seq())
 		c.responseHandlersMu.Unlock()
-		return types.Response{}, fmt.Errorf("Error sending request: %s: %w", name, err)
+		return types.Response{}, fmt.Errorf("Error sending request: %s: %w", req.Command(), err)
 	}
 
 	resp := <-ch

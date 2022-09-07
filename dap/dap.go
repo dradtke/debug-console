@@ -160,14 +160,14 @@ func (d *DAP) StartConsole() error {
 	return nil
 }
 
-func (d *DAP) SendRequest(name string, args any) (types.Response, error) {
+func (d *DAP) SendRequest(req types.Request) (types.Response, error) {
 	d.Lock()
 	p := d.Conn
 	d.Unlock()
 	if p == nil {
 		return types.Response{}, errors.New("No process running")
 	}
-	return p.SendRequest(name, args)
+	return p.SendRequest(req)
 }
 
 func (d *DAP) ClearProcess() {
@@ -176,7 +176,7 @@ func (d *DAP) ClearProcess() {
 	d.Unlock()
 }
 
-func (d *DAP) HandleStopped(stopped types.Stopped) (*types.StackFrame, error) {
+func (d *DAP) HandleStopped(stopped types.StoppedEvent) (*types.StackFrame, error) {
 	if err := d.ConsoleClient.Call("ConsoleService.HandleStopped", struct{}{}, nil); err != nil {
 		log.Printf("Error invoking ConsoleService.HandleStopped: %s", err)
 	}
@@ -184,13 +184,13 @@ func (d *DAP) HandleStopped(stopped types.Stopped) (*types.StackFrame, error) {
 		return nil, nil
 	}
 
-	resp, err := d.SendRequest("stackTrace", map[string]any{
-		"threadId": *stopped.ThreadID,
-		"levels":   1,
-		"format": map[string]any{
-			"line": true,
+	resp, err := d.SendRequest(types.NewStackTraceRequest(types.StackTraceArguments{
+		ThreadID: *stopped.ThreadID,
+		Levels:   1,
+		Format: &types.StackFrameFormat{
+			Line: types.PtrBool(true),
 		},
-	})
+	}))
 	if err != nil {
 		return nil, fmt.Errorf("Error getting stack trace: %w", err)
 	}

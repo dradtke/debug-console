@@ -10,8 +10,8 @@ func (r DAPService) Continue(_ struct{}, _ *struct{}) error {
 	return r.d.Continue()
 }
 
-func (r DAPService) Evaluate(req types.EvaluateRequest, resp *types.EvaluateResponse) error {
-	result, err := r.d.Conn.Evaluate(req)
+func (r DAPService) Evaluate(args types.EvaluateArguments, resp *types.EvaluateResponse) error {
+	result, err := r.d.Conn.Evaluate(args)
 	if err != nil {
 		return err
 	}

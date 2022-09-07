@@ -28,10 +28,10 @@ func Message(msg any) ([]byte, error) {
 }
 
 type Request struct {
-	Seq       int64  `json:"seq"`
-	Type      string `json:"type"` // ???: always "request"?
-	Command   string `json:"command"`
-	Arguments any    `json:"arguments,omitempty"`
+	Seq     int64  `json:"seq"`
+	Type    string `json:"type"` // ???: always "request"?
+	Command string `json:"command"`
+	Arguments any `json:"arguments,omitempty"`
 }
 
 func NewRequest(command string, arguments any) Request {

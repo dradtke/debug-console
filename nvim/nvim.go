@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/dradtke/debug-console/dap"
+	"github.com/dradtke/debug-console/types"
 	"github.com/neovim/go-client/nvim"
 	"github.com/neovim/go-client/nvim/plugin"
 )
@@ -51,18 +52,18 @@ func SendConfiguration(v *nvim.Nvim, p *dap.Conn) error {
 			if err != nil {
 				addErr(fmt.Errorf("SendConfiguration: %w", err))
 			}
-			var breakpoints []map[string]any
+			var breakpoints []types.SourceBreakpoint
 			for _, breakpointSign := range breakpointSigns {
-				breakpoints = append(breakpoints, map[string]any{
-					"line": breakpointSign.LineNumber,
+				breakpoints = append(breakpoints, types.SourceBreakpoint{
+					Line: breakpointSign.LineNumber,
 				})
 			}
-			if _, err := p.SendRequest("setBreakpoints", map[string]any{
-				"source": map[string]any{
-					"path": bufferPath,
+			if _, err := p.SendRequest(types.NewSetBreakpointRequest(types.SetBreakpointArguments{
+				Source: types.Source{
+					Path: &bufferPath,
 				},
-				"breakpoints": breakpoints,
-			}); err != nil {
+				Breakpoints: breakpoints,
+			})); err != nil {
 				addErr(fmt.Errorf("Error setting breakpoints: %w", err))
 			}
 			wg.Done()

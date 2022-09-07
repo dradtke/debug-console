@@ -33,3 +33,6 @@ func (r ErrorResponse) Error() string {
 	return fmt.Sprintf("%d: %s", r.Details.ID, msg)
 }
 
+type EvaluateResponse struct {
+	Result string `json:"result"`
+}
