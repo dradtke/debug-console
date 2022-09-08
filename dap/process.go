@@ -67,6 +67,14 @@ func (c *Conn) HandleOut() {
 			continue
 		}
 
+		/*
+		var buf bytes.Buffer
+		if err := json.Indent(&buf, []byte(body), "", "  "); err != nil {
+			panic(err)
+		}
+		log.Println(buf.String())
+		*/
+
 		//for _, line := range strings.Split(rawHeaders, NL) {
 		//	log.Printf("<< %s", line)
 		//}

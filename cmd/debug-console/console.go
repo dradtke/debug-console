@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -50,7 +51,7 @@ func runConsole(args []string) error {
 		return fmt.Errorf("Error opening console rpc listener at %s: %w", *rpcConsole, err)
 	}
 
-	console, err := console.NewConsole()
+	console, err := console.NewConsole(dapClient)
 	if err != nil {
 		return fmt.Errorf("Error creating console: %w", err)
 	}
@@ -82,8 +83,12 @@ func consoleInputLoop(c console.ConsoleService, dapClient *rpc.Client) error {
 				}
 				if errors.Is(err, io.EOF) {
 					fmt.Println("Quitting...")
+					// Give the debug adapter a chance to terminate gracefully.
 					if err := dapClient.Call("DAPService.Terminate", struct{}{}, nil); err != nil {
-						log.Printf("Error terminating adapter: %s\n", err)
+						// That failed, so just disconnect.
+						if err = dapClient.Call("DAPService.Disconnect", struct{}{}, nil); err != nil {
+							log.Printf("Error disconnecting from debug adapter: %s", err)
+						}
 					}
 					return nil
 				}
@@ -102,6 +107,17 @@ func handleCommand(line string, dapClient *rpc.Client) (keepLooping bool) {
 	switch words[0] {
 	case "?", "h", "help":
 		fmt.Println("TODO: put help here")
+		return true
+
+	case "caps", "capabilities":
+		var capabilities types.Capabilities
+		if err := dapClient.Call("DAPService.Capabilities", struct{}{}, &capabilities); err != nil {
+			log.Printf("Error getting capabilities: %s", err)
+		} else if b, err := json.MarshalIndent(capabilities, "", "  "); err != nil {
+			log.Printf("Error formatting capabilities: %s", err)
+		} else {
+			fmt.Println(string(b))
+		}
 		return true
 
 	case "threads":

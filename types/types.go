@@ -21,45 +21,45 @@ type StackFrameFormat struct {
 }
 
 type Capabilities struct {
-	SupportsConfigurationDoneRequest      bool                         `json:"supportsConfigurationDoneRequest"`
-	SupportsFunctionBreakpoints           bool                         `json:"supportsFunctionBreakpoints"`
-	SupportsConditionalBreakpoints        bool                         `json:"supportsConditionalBreakpoints"`
-	SupportsHitConditionalBreakpoints     bool                         `json:"supportsHitConditionalBreakpoints"`
-	SupportsEvaluateForHovers             bool                         `json:"supportsEvaluateForHovers"`
-	ExceptionBreakpointFilters            []ExceptionBreakpointsFilter `json:"exceptionBreakpointFilters"`
-	SupportsStepBack                      bool                         `json:"supportsStepBack"`
-	SupportsSetVariable                   bool                         `json:"supportsSetVariable"`
-	SupportsRestartFrame                  bool                         `json:"supportsRestartFrame"`
-	SupportsGotoTargetsRequest            bool                         `json:"supportsGotoTargetsRequest"`
-	SupportsStepInTargetsRequest          bool                         `json:"supportsStepInTargetsRequest"`
-	SupportsCompletionsRequest            bool                         `json:"supportsCompletionsRequest"`
-	CompletionTriggerCharacters           []string                     `json:"completionTriggerCharacters"`
-	SupportsModulesRequest                bool                         `json:"supportsModulesRequest"`
-	AdditionalModuleColumns               []ColumnDescriptor           `json:"additionalModuleColumns"`
-	SupportedChecksumAlgorithms           []ChecksumAlgorithm          `json:"supportedChecksumAlgorithms"`
-	SupportsRestartRequest                bool                         `json:"supportsRestartRequest"`
-	SupportsExceptionOptions              bool                         `json:"supportsExceptionOptions"`
-	SupportsValueFormattingOptions        bool                         `json:"supportsValueFormattingOptions"`
-	SupportsExceptionInfoRequest          bool                         `json:"supportsExceptionInfoRequest"`
-	SupportTerminateDebuggee              bool                         `json:"supportTerminateDebuggee"`
-	SupportSuspendDebuggee                bool                         `json:"supportSuspendDebuggee"`
-	SupportsDelayedStackTraceLoading      bool                         `json:"supportsDelayedStackTraceLoading"`
-	SupportsLoadedSourcesRequest          bool                         `json:"supportsLoadedSourcesRequest"`
-	SupportsLogPoints                     bool                         `json:"supportsLogPoints"`
-	SupportsTerminateThreadsRequest       bool                         `json:"supportsTerminateThreadsRequest"`
-	SupportsSetExpression                 bool                         `json:"supportsSetExpression"`
-	SupportsTerminateRequest              bool                         `json:"supportsTerminateRequest"`
-	SupportsDataBreakpoints               bool                         `json:"supportsDataBreakpoints"`
-	SupportsReadMemoryRequest             bool                         `json:"supportsReadMemoryRequest"`
-	SupportsWriteMemoryRequest            bool                         `json:"supportsWriteMemoryRequest"`
-	SupportsDisassembleRequest            bool                         `json:"supportsDisassembleRequest"`
-	SupportsCancelRequest                 bool                         `json:"supportsCancelRequest"`
-	SupportsBreakpointLocationsRequest    bool                         `json:"supportsBreakpointLocationsRequest"`
-	SupportsClipboardContext              bool                         `json:"supportsClipboardContext"`
-	SupportsSteppingGranularity           bool                         `json:"supportsSteppingGranularity"`
-	SupportsInstructionBreakpoints        bool                         `json:"supportsInstructionBreakpoints"`
-	SupportsExceptionFilterOptions        bool                         `json:"supportsExceptionFilterOptions"`
-	SupportsSingleThreadExecutionRequests bool                         `json:"supportsSingleThreadExecutionRequests"`
+	SupportsConfigurationDoneRequest      bool                         `json:"supportsConfigurationDoneRequest,omitempty"`
+	SupportsFunctionBreakpoints           bool                         `json:"supportsFunctionBreakpoints,omitempty"`
+	SupportsConditionalBreakpoints        bool                         `json:"supportsConditionalBreakpoints,omitempty"`
+	SupportsHitConditionalBreakpoints     bool                         `json:"supportsHitConditionalBreakpoints,omitempty"`
+	SupportsEvaluateForHovers             bool                         `json:"supportsEvaluateForHovers,omitempty"`
+	ExceptionBreakpointFilters            []ExceptionBreakpointsFilter `json:"exceptionBreakpointFilters,omitempty"`
+	SupportsStepBack                      bool                         `json:"supportsStepBack,omitempty"`
+	SupportsSetVariable                   bool                         `json:"supportsSetVariable,omitempty"`
+	SupportsRestartFrame                  bool                         `json:"supportsRestartFrame,omitempty"`
+	SupportsGotoTargetsRequest            bool                         `json:"supportsGotoTargetsRequest,omitempty"`
+	SupportsStepInTargetsRequest          bool                         `json:"supportsStepInTargetsRequest,omitempty"`
+	SupportsCompletionsRequest            bool                         `json:"supportsCompletionsRequest,omitempty"`
+	CompletionTriggerCharacters           []string                     `json:"completionTriggerCharacters,omitempty"`
+	SupportsModulesRequest                bool                         `json:"supportsModulesRequest,omitempty"`
+	AdditionalModuleColumns               []ColumnDescriptor           `json:"additionalModuleColumns,omitempty"`
+	SupportedChecksumAlgorithms           []ChecksumAlgorithm          `json:"supportedChecksumAlgorithms,omitempty"`
+	SupportsRestartRequest                bool                         `json:"supportsRestartRequest,omitempty"`
+	SupportsExceptionOptions              bool                         `json:"supportsExceptionOptions,omitempty"`
+	SupportsValueFormattingOptions        bool                         `json:"supportsValueFormattingOptions,omitempty"`
+	SupportsExceptionInfoRequest          bool                         `json:"supportsExceptionInfoRequest,omitempty"`
+	SupportTerminateDebuggee              bool                         `json:"supportTerminateDebuggee,omitempty"`
+	SupportSuspendDebuggee                bool                         `json:"supportSuspendDebuggee,omitempty"`
+	SupportsDelayedStackTraceLoading      bool                         `json:"supportsDelayedStackTraceLoading,omitempty"`
+	SupportsLoadedSourcesRequest          bool                         `json:"supportsLoadedSourcesRequest,omitempty"`
+	SupportsLogPoints                     bool                         `json:"supportsLogPoints,omitempty"`
+	SupportsTerminateThreadsRequest       bool                         `json:"supportsTerminateThreadsRequest,omitempty"`
+	SupportsSetExpression                 bool                         `json:"supportsSetExpression,omitempty"`
+	SupportsTerminateRequest              bool                         `json:"supportsTerminateRequest,omitempty"`
+	SupportsDataBreakpoints               bool                         `json:"supportsDataBreakpoints,omitempty"`
+	SupportsReadMemoryRequest             bool                         `json:"supportsReadMemoryRequest,omitempty"`
+	SupportsWriteMemoryRequest            bool                         `json:"supportsWriteMemoryRequest,omitempty"`
+	SupportsDisassembleRequest            bool                         `json:"supportsDisassembleRequest,omitempty"`
+	SupportsCancelRequest                 bool                         `json:"supportsCancelRequest,omitempty"`
+	SupportsBreakpointLocationsRequest    bool                         `json:"supportsBreakpointLocationsRequest,omitempty"`
+	SupportsClipboardContext              bool                         `json:"supportsClipboardContext,omitempty"`
+	SupportsSteppingGranularity           bool                         `json:"supportsSteppingGranularity,omitempty"`
+	SupportsInstructionBreakpoints        bool                         `json:"supportsInstructionBreakpoints,omitempty"`
+	SupportsExceptionFilterOptions        bool                         `json:"supportsExceptionFilterOptions,omitempty"`
+	SupportsSingleThreadExecutionRequests bool                         `json:"supportsSingleThreadExecutionRequests,omitempty"`
 }
 
 type ExceptionBreakpointsFilter struct{}
@@ -69,4 +69,16 @@ type ChecksumAlgorithm struct{}
 type Thread struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
+}
+
+type CompletionItem struct {
+	Label           string `json:"label"`
+	Type            string `json:"type"`
+	Text            string `json:"text,omitempty"`
+	SortText        string `json:"sortText,omitempty"`
+	Detail          string `json:"detail,omitempty"`
+	Start           *int   `json:"start,omitempty"`
+	Length          int    `json:"length,omitempty"`
+	SelectionStart  *int   `json:"selectionStart,omitempty"`
+	SelectionLength int    `json:"selectionLength,omitempty"`
 }

@@ -59,7 +59,23 @@ func (p *Conn) Threads() ([]types.Thread, error) {
 	return body.Threads, nil
 }
 
+func (p *Conn) Completions(args types.CompletionsArguments) ([]types.CompletionItem, error) {
+	resp, err := p.SendRequest(types.NewCompletionsRequest(args))
+	if err != nil {
+		return nil, err
+	}
+
+	var body types.CompletionsResponse
+	if err := json.Unmarshal(resp.Body, &body); err != nil {
+		return nil, fmt.Errorf("Error parsing completions response: %w", err)
+	}
+	return body.Targets, nil
+}
+
 func (d *DAP) Terminate() error {
+	if !d.Capabilities.SupportTerminateDebuggee {
+		return types.ErrUnsupported
+	}
 	d.Lock()
 	_, err := d.Conn.SendRequest(types.NewTerminateRequest(types.TerminateArguments{}))
 	d.Unlock()

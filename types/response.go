@@ -40,3 +40,7 @@ type EvaluateResponse struct {
 type ThreadsResponse struct {
 	Threads []Thread `json:"threads"`
 }
+
+type CompletionsResponse struct {
+	Targets []CompletionItem `json:"targets"`
+}

@@ -35,3 +35,19 @@ func (r DAPService) Terminate(_ struct{}, _ *struct{}) error {
 func (r DAPService) Disconnect(_ struct{}, _ *struct{}) error {
 	return r.d.Disconnect()
 }
+
+func (r DAPService) Capabilities(_ struct{}, capabilities *types.Capabilities) error {
+	if r.d.Capabilities != nil {
+		*capabilities = *r.d.Capabilities
+	}
+	return nil
+}
+
+func (r DAPService) Completions(args types.CompletionsArguments, results *[]types.CompletionItem) error {
+	items, err := r.d.Conn.Completions(args)
+	if err != nil {
+		return err
+	}
+	*results = items
+	return nil
+}

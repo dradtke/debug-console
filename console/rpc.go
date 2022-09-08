@@ -1,25 +1,27 @@
 package console
 
 import (
+	"net/rpc"
 	"os"
 	"time"
 
 	"github.com/chzyer/readline"
 )
 
-type ConsoleService struct{
+type ConsoleService struct {
 	Prompt *readline.Instance
-	Stops chan struct{}
+	Stops  chan struct{}
 }
 
-func NewConsole() (ConsoleService, error) {
+func NewConsole(dapClient *rpc.Client) (ConsoleService, error) {
 	rl, err := readline.New("debug> ")
 	if err != nil {
 		return ConsoleService{}, err
 	}
+	rl.Config.AutoComplete = completer{dapClient}
 	return ConsoleService{
 		Prompt: rl,
-		Stops: make(chan struct{}, 1),
+		Stops:  make(chan struct{}, 1),
 	}, nil
 }
 

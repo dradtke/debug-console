@@ -146,3 +146,20 @@ func NewDisconnectRequest(args DisconnectArguments) Request {
 		Arguments: args,
 	}
 }
+
+type CompletionsArguments struct {
+	FrameID *int   `json:"frameId,omitempty"`
+	Text    string `json:"text"`
+	Column  int    `json:"column"`
+	Line    *int   `json:"line,omitempty"`
+}
+
+func NewCompletionsRequest(args CompletionsArguments) Request {
+	return struct {
+		request
+		Arguments CompletionsArguments `json:"arguments"`
+	}{
+		request:   newRequest("completions"),
+		Arguments: args,
+	}
+}
