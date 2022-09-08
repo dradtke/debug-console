@@ -36,3 +36,7 @@ func (r ErrorResponse) Error() string {
 type EvaluateResponse struct {
 	Result string `json:"result"`
 }
+
+type ThreadsResponse struct {
+	Threads []Thread `json:"threads"`
+}

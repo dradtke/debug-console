@@ -23,7 +23,7 @@ type DAP struct {
 	Dir                string
 	EditorEventHandler types.EventHandler
 	Conn               *Conn
-	Capabilities       map[string]bool
+	Capabilities       *types.Capabilities
 	ConsoleClient      *rpc.Client
 	OutputBroadcaster  *OutputBroadcaster
 	StoppedLocation    *types.StackFrame
@@ -31,7 +31,7 @@ type DAP struct {
 
 type DapCommandFunc func(string) ([]string, error)
 
-func (d *DAP) Run(f func() (Connector, error)) (conn *Conn, err error) {
+func (d *DAP) Run(f func() (Connector, error), onExit func()) (conn *Conn, err error) {
 	d.RLock()
 	if d.Conn != nil {
 		defer d.RUnlock()
@@ -69,6 +69,7 @@ func (d *DAP) Run(f func() (Connector, error)) (conn *Conn, err error) {
 			log.Print("Debug adapter exited")
 		}
 		d.ClearProcess()
+		onExit()
 	}()
 
 	log.Printf("Started debug adapter")
@@ -80,8 +81,8 @@ func (d *DAP) Run(f func() (Connector, error)) (conn *Conn, err error) {
 	if err != nil {
 		return conn, fmt.Errorf("Error initializing debug adapter: %w", err)
 	}
-	d.Capabilities = make(map[string]bool)
-	if err := json.Unmarshal(resp.Body, &d.Capabilities); err != nil {
+	d.Capabilities = &types.Capabilities{}
+	if err := json.Unmarshal(resp.Body, d.Capabilities); err != nil {
 		log.Printf("Error parsing capabilities: %s", err)
 	}
 

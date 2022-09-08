@@ -4,10 +4,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/rpc"
 	"strings"
+
+	"github.com/chzyer/readline"
 
 	"github.com/dradtke/debug-console/console"
 	"github.com/dradtke/debug-console/types"
@@ -73,6 +76,17 @@ func consoleInputLoop(c console.ConsoleService, dapClient *rpc.Client) error {
 		for {
 			line, err := c.Prompt.Readline()
 			if err != nil {
+				if errors.Is(err, readline.ErrInterrupt) {
+					fmt.Println("Use Ctrl-D to quit")
+					continue input
+				}
+				if errors.Is(err, io.EOF) {
+					fmt.Println("Quitting...")
+					if err := dapClient.Call("DAPService.Terminate", struct{}{}, nil); err != nil {
+						log.Printf("Error terminating adapter: %s\n", err)
+					}
+					return nil
+				}
 				return err
 			}
 			keepLooping := handleCommand(line, dapClient)
@@ -84,23 +98,47 @@ func consoleInputLoop(c console.ConsoleService, dapClient *rpc.Client) error {
 }
 
 func handleCommand(line string, dapClient *rpc.Client) (keepLooping bool) {
-	switch line {
+	words := strings.Split(line, " ")
+	switch words[0] {
+	case "?", "h", "help":
+		fmt.Println("TODO: put help here")
+		return true
+
+	case "threads":
+		var threads []types.Thread
+		if err := dapClient.Call("DAPService.Threads", struct{}{}, &threads); err != nil {
+			log.Printf("Error calling threads: %s", err)
+		} else {
+			for _, thread := range threads {
+				fmt.Printf("[%d] %s\n", thread.ID, thread.Name)
+			}
+		}
+		return true
+
 	case "c", "continue":
 		if err := dapClient.Call("DAPService.Continue", struct{}{}, nil); err != nil {
 			log.Printf("Error calling continue: %s", err)
 		}
 		return false
 
-	default:
-		var resp types.EvaluateResponse
-		if err := dapClient.Call("DAPService.Evaluate", types.EvaluateArguments{
-			Expression: line,
-			Context:    "repl",
-		}, &resp); err != nil {
-			log.Print(err)
-		} else {
-			fmt.Println(resp.Result)
-		}
+	case "e", "eval", "evaluate":
+		evaluate(dapClient, strings.Join(words[1:], " "))
 		return true
+
+	default:
+		evaluate(dapClient, line)
+		return true
+	}
+}
+
+func evaluate(dapClient *rpc.Client, expression string) {
+	var result string
+	if err := dapClient.Call("DAPService.Evaluate", types.EvaluateArguments{
+		Expression: expression,
+		Context:    "repl",
+	}, &result); err != nil {
+		log.Print(err)
+	} else {
+		fmt.Println(result)
 	}
 }

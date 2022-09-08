@@ -57,6 +57,10 @@ func NewContinueRequest() Request {
 	return newRequest("continue")
 }
 
+func NewThreadsRequest() Request {
+	return newRequest("threads")
+}
+
 type EvaluateArguments struct {
 	Expression string `json:"expression"`
 	Context    string `json:"context,omitempty"`
@@ -109,6 +113,36 @@ func NewSetBreakpointRequest(args SetBreakpointArguments) Request {
 		Arguments SetBreakpointArguments `json:"arguments"`
 	}{
 		request:   newRequest("setBreakpoints"),
+		Arguments: args,
+	}
+}
+
+type TerminateArguments struct {
+	Restart bool `json:"restart,omitempty"`
+}
+
+func NewTerminateRequest(args TerminateArguments) Request {
+	return struct {
+		request
+		Arguments TerminateArguments `json:"arguments"`
+	}{
+		request:   newRequest("terminate"),
+		Arguments: args,
+	}
+}
+
+type DisconnectArguments struct {
+	Restart           bool `json:"restart,omitempty"`
+	TerminateDebuggee bool `json:"terminateDebuggee,omitempty"`
+	SuspendDebuggee   bool `json:"suspendDebuggee,omitempty"`
+}
+
+func NewDisconnectRequest(args DisconnectArguments) Request {
+	return struct {
+		request
+		Arguments DisconnectArguments `json:"arguments"`
+	}{
+		request:   newRequest("disconnect"),
 		Arguments: args,
 	}
 }

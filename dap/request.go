@@ -45,4 +45,38 @@ func (p *Conn) Evaluate(args types.EvaluateArguments) (string, error) {
 	return body.Result, nil
 }
 
+func (p *Conn) Threads() ([]types.Thread, error) {
+	resp, err := p.SendRequest(types.NewThreadsRequest())
+	if err != nil {
+		return nil, err
+	}
+
+	var body types.ThreadsResponse
+	if err := json.Unmarshal(resp.Body, &body); err != nil {
+		return nil, fmt.Errorf("Error parsing threads response: %w", err)
+	}
+
+	return body.Threads, nil
+}
+
+func (d *DAP) Terminate() error {
+	d.Lock()
+	_, err := d.Conn.SendRequest(types.NewTerminateRequest(types.TerminateArguments{}))
+	d.Unlock()
+	if err == nil {
+		d.Stop()
+	}
+	return err
+}
+
+func (d *DAP) Disconnect() error {
+	d.Lock()
+	_, err := d.Conn.SendRequest(types.NewDisconnectRequest(types.DisconnectArguments{}))
+	d.Unlock()
+	if err == nil {
+		d.Stop()
+	}
+	return err
+}
+
 // TODO: Add more request types here

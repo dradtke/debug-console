@@ -15,6 +15,12 @@ func RegisterCommands(p *plugin.Plugin, d *dap.DAP) {
 	p.HandleCommand(&plugin.CommandOptions{Name: "CurrentLocation"}, CurrentLocation(d))
 }
 
+func OnDapExit(v *nvim.Nvim) func() {
+	return func() {
+		RemoveAllSigns(v, SignGroupCurrentLocation)
+	}
+}
+
 func DebugRun(d *dap.DAP) any {
 	return func(v *nvim.Nvim, eval *struct {
 		Path     string `eval:"expand('%:p')"`
@@ -24,7 +30,7 @@ func DebugRun(d *dap.DAP) any {
 		switch eval.Filetype {
 		case "go":
 			go func() {
-				p, err := d.Run(dap.GoConnector(d.Dir))
+				p, err := d.Run(dap.GoConnector(d.Dir), OnDapExit(v))
 				if err != nil {
 					log.Printf("Error starting debug adapter: %s", err)
 					return
