@@ -6,12 +6,9 @@ import (
 	"log"
 	"net"
 	"sync"
-)
 
-type Output struct {
-	Category string `json:"category"`
-	Output   string `json:"output"`
-}
+	"github.com/dradtke/debug-console/types"
+)
 
 // ???: Is it overengineered to support multiple connections to this?
 
@@ -56,7 +53,7 @@ func NewOutputBroadcaster() (*OutputBroadcaster, error) {
 	return b, nil
 }
 
-func (b *OutputBroadcaster) Broadcast(output Output) {
+func (b *OutputBroadcaster) Broadcast(output types.OutputEvent) {
 	// Make sure we have had at least one connection
 	<-b.firstConnSeenCh
 

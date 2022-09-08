@@ -9,7 +9,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/dradtke/debug-console/dap"
+	"github.com/dradtke/debug-console/types"
 )
 
 func runOutput(args []string) error {
@@ -34,7 +34,7 @@ func runOutput(args []string) error {
 	}
 
 	dec := gob.NewDecoder(c)
-	var output dap.Output
+	var output types.OutputEvent
 
 	for {
 		if err := dec.Decode(&output); err != nil {

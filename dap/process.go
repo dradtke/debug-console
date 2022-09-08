@@ -19,7 +19,7 @@ type Conn struct {
 	out, err           io.ReadCloser
 	in                 io.WriteCloser
 	inMu               sync.Mutex
-	eventHandler       func(types.Event)
+	eventHandlers      []types.EventHandler
 	responseHandlers   map[int64]chan<- types.Response
 	responseHandlersMu sync.Mutex
 }
@@ -103,7 +103,13 @@ func (c *Conn) HandleOut() {
 			if err := json.Unmarshal([]byte(body), &event); err != nil {
 				log.Printf("dap stdout: error parsing event: %s", err)
 			}
-			c.eventHandler(event)
+			for _, f := range c.eventHandlers {
+				f(event)
+			}
+
+		case "request":
+			// TODO: handle reverse request
+			log.Print("received reverse request (TODO: handle)")
 
 		default:
 			log.Printf("unrecognized incoming message type: %s", parsed.Type)

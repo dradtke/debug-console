@@ -12,12 +12,12 @@ import (
 // The two main options are to spawn a subprocess, or to connect to one that
 // is already running.
 type Connector interface {
-	Connect(eventHandler func(types.Event)) (*Conn, error)
+	Connect(eventHandlers []types.EventHandler) (*Conn, error)
 }
 
 type Subprocess []string
 
-func (s Subprocess) Connect(eventHandler func(types.Event)) (*Conn, error) {
+func (s Subprocess) Connect(eventHandlers []types.EventHandler) (*Conn, error) {
 	cmd := exec.Command(s[0], s[1:]...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -39,9 +39,10 @@ func (s Subprocess) Connect(eventHandler func(types.Event)) (*Conn, error) {
 		out:              stdout,
 		err:              stderr,
 		in:               stdin,
-		eventHandler:     eventHandler,
+		eventHandlers:    eventHandlers,
 		responseHandlers: make(map[int64]chan<- types.Response),
 	}
+	// TODO: how to reference the *DAP here?
 	go conn.HandleOut()
 	go conn.HandleErr()
 	return conn, nil
@@ -51,7 +52,7 @@ type Connection struct {
 	Network, Address string
 }
 
-func (c Connection) Connect(eventHandler func(types.Event)) (*Conn, error) {
+func (c Connection) Connect(eventHandlers []types.EventHandler) (*Conn, error) {
 	rawConn, err := net.Dial(c.Network, c.Address)
 	if err != nil {
 		return nil, fmt.Errorf("Error connecting to debug adapter at %s: %w", c.Address, err)
@@ -59,7 +60,7 @@ func (c Connection) Connect(eventHandler func(types.Event)) (*Conn, error) {
 	conn := &Conn{
 		out:              rawConn,
 		in:               rawConn,
-		eventHandler:     eventHandler,
+		eventHandlers:    eventHandlers,
 		responseHandlers: make(map[int64]chan<- types.Response),
 	}
 	go conn.HandleOut()

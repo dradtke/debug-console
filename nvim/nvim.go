@@ -125,7 +125,7 @@ func Main(exe string) error {
 	}
 
 	plugin.Main(func(p *plugin.Plugin) error {
-		d.EventHandler = HandleEvent(p.Nvim, d) // this feels weird to do
+		d.EditorEventHandler = HandleEvent(p.Nvim, d) // this feels weird to do
 		p.HandleAutocmd(&plugin.AutocmdOptions{Event: "VimLeave", Pattern: "*"}, d.Stop)
 		RegisterCommands(p, d)
 		return nil

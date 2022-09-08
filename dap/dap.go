@@ -10,8 +10,8 @@ import (
 	"sync"
 
 	"github.com/dradtke/debug-console/tmux"
-	"github.com/dradtke/debug-console/util"
 	"github.com/dradtke/debug-console/types"
+	"github.com/dradtke/debug-console/util"
 )
 
 type DAP struct {
@@ -20,13 +20,13 @@ type DAP struct {
 	// Exe is the executable, used for launching the console.
 	Exe string
 	// Dir is where debug adapters are saved locally.
-	Dir               string
-	EventHandler      types.EventHandler
-	Conn              *Conn
-	Capabilities      map[string]bool
-	ConsoleClient     *rpc.Client
-	OutputBroadcaster *OutputBroadcaster
-	StoppedLocation   *types.StackFrame
+	Dir                string
+	EditorEventHandler types.EventHandler
+	Conn               *Conn
+	Capabilities       map[string]bool
+	ConsoleClient      *rpc.Client
+	OutputBroadcaster  *OutputBroadcaster
+	StoppedLocation    *types.StackFrame
 }
 
 type DapCommandFunc func(string) ([]string, error)
@@ -45,7 +45,8 @@ func (d *DAP) Run(f func() (Connector, error)) (conn *Conn, err error) {
 		return nil, fmt.Errorf("Error creating connector: %w", err)
 	}
 
-	if conn, err = connector.Connect(d.EventHandler); err != nil {
+	eventHandlers := []types.EventHandler{d.HandleEvent, d.EditorEventHandler}
+	if conn, err = connector.Connect(eventHandlers); err != nil {
 		log.Printf("Failed to start debug adapter process: %s", err)
 	}
 
@@ -176,6 +177,27 @@ func (d *DAP) ClearProcess() {
 	d.Unlock()
 }
 
+func (d *DAP) HandleEvent(event types.Event) {
+	log.Printf("Received event: %s", event.Event)
+
+	switch event.Event {
+	case "initialized":
+		log.Print("Debug adapter initialized")
+
+	case "output":
+		var output types.OutputEvent
+		if err := json.Unmarshal(event.Body, &output); err != nil {
+			log.Printf("Error parsing output event: %s", err)
+		} else if err = d.ShowOutput(output); err != nil {
+			log.Printf("Error showing output: %s", err)
+		}
+
+	case "terminated":
+		log.Print("Debug adapter terminated")
+		d.Stop()
+	}
+}
+
 func (d *DAP) HandleStopped(stopped types.StoppedEvent) (*types.StackFrame, error) {
 	if err := d.ConsoleClient.Call("ConsoleService.HandleStopped", struct{}{}, nil); err != nil {
 		log.Printf("Error invoking ConsoleService.HandleStopped: %s", err)
@@ -213,7 +235,7 @@ func (d *DAP) HandleStopped(stopped types.StoppedEvent) (*types.StackFrame, erro
 	return &stackFrame, nil
 }
 
-func (d *DAP) ShowOutput(output Output) error {
+func (d *DAP) ShowOutput(output types.OutputEvent) error {
 	d.Lock()
 	defer d.Unlock()
 

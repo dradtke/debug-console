@@ -21,3 +21,8 @@ type StoppedEvent struct {
 	Text              *string `json:"text"`
 	HitBreakpointIds  []int  `json:"hitBreakpointIds"`
 }
+
+type OutputEvent struct {
+	Category string `json:"category"`
+	Output   string `json:"output"`
+}

@@ -7,12 +7,9 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	"sync/atomic"
 )
 
 const NL = "\r\n"
-
-var seq int64
 
 func Message(msg any) ([]byte, error) {
 	b, err := json.Marshal(msg)
@@ -25,22 +22,6 @@ func Message(msg any) ([]byte, error) {
 	buf.WriteString(NL)
 	buf.Write(b)
 	return buf.Bytes(), nil
-}
-
-type Request struct {
-	Seq     int64  `json:"seq"`
-	Type    string `json:"type"` // ???: always "request"?
-	Command string `json:"command"`
-	Arguments any `json:"arguments,omitempty"`
-}
-
-func NewRequest(command string, arguments any) Request {
-	return Request{
-		Seq:       atomic.AddInt64(&seq, 1),
-		Type:      "request",
-		Command:   command,
-		Arguments: arguments,
-	}
 }
 
 func ReadMessage(r io.Reader, scratch []byte, buf *bytes.Buffer) (map[string]string, string, string, error) {

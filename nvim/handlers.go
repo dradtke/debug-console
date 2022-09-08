@@ -13,26 +13,7 @@ import (
 // TODO: move non-Neovim-specific event handling to the dap package
 func HandleEvent(v *nvim.Nvim, d *dap.DAP) types.EventHandler {
 	return func(event types.Event) {
-		log.Printf("received event: %s", event.Event)
 		switch event.Event {
-		case "output":
-			var body dap.Output
-			if err := json.Unmarshal(event.Body, &body); err != nil {
-				log.Printf("Error parsing event output: %s", err)
-			} else {
-				if err := d.ShowOutput(body); err != nil {
-					log.Printf("Error showing event output: %s", err)
-				}
-			}
-
-		case "terminated":
-			RemoveAllSigns(v, SignGroupCurrentLocation)
-			log.Print("Debug adapter terminated.")
-			d.Stop()
-
-		case "initialized":
-			log.Print("Debug adapter initialized")
-
 		case "stopped":
 			var stopped types.StoppedEvent
 			if err := json.Unmarshal(event.Body, &stopped); err != nil {
@@ -61,11 +42,11 @@ func HandleEvent(v *nvim.Nvim, d *dap.DAP) types.EventHandler {
 			}()
 
 		case "continued":
-			// TODO: remove current location?
 			RemoveAllSigns(v, SignGroupCurrentLocation)
 
-		default:
-			log.Printf("Don't know how to handle event: %s", event.Event)
+		case "terminated":
+			Notify(v, "Debug adapter terminated", nvim.LogInfoLevel)
+			RemoveAllSigns(v, SignGroupCurrentLocation)
 		}
 	}
 }
