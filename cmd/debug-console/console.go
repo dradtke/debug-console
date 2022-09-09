@@ -68,6 +68,11 @@ func runConsole(args []string) error {
 }
 
 func consoleInputLoop(c console.ConsoleService, dapClient *rpc.Client) error {
+	var (
+		multiline bool
+		lines     []string
+	)
+
 	for {
 		// TODO: see if the program is running or not?
 		fmt.Println("Running...")
@@ -94,20 +99,42 @@ func consoleInputLoop(c console.ConsoleService, dapClient *rpc.Client) error {
 				}
 				return err
 			}
-			keepLooping := handleCommand(line, dapClient)
+			if multiline {
+				lines = append(lines, line)
+				if line != "" {
+					c.Prompt.SetPrompt("                *> ")
+					continue input
+				} else {
+					line = strings.Join(lines, "\n")
+					lines = nil
+				}
+			}
+			// TODO: how to handle multiline-switching command?
+			keepLooping, toggleMultiline := handleCommand(line, dapClient)
 			if !keepLooping {
 				break input
+			}
+			if toggleMultiline {
+				multiline = !multiline
+			}
+			if multiline {
+				c.Prompt.SetPrompt("debug (multiline)> ")
+			} else {
+				c.Prompt.SetPrompt("debug> ")
 			}
 		}
 	}
 }
 
-func handleCommand(line string, dapClient *rpc.Client) (keepLooping bool) {
+func handleCommand(line string, dapClient *rpc.Client) (keepLooping, toggleMultiline bool) {
 	words := strings.Split(line, " ")
 	switch words[0] {
 	case "?", "h", "help":
 		fmt.Println("TODO: put help here")
-		return true
+		return true, false
+
+	case "ml", "multiline":
+		return true, true
 
 	case "caps", "capabilities":
 		var capabilities types.Capabilities
@@ -118,7 +145,7 @@ func handleCommand(line string, dapClient *rpc.Client) (keepLooping bool) {
 		} else {
 			fmt.Println(string(b))
 		}
-		return true
+		return true, false
 
 	case "threads":
 		var threads []types.Thread
@@ -129,13 +156,13 @@ func handleCommand(line string, dapClient *rpc.Client) (keepLooping bool) {
 				fmt.Printf("[%d] %s\n", thread.ID, thread.Name)
 			}
 		}
-		return true
+		return true, false
 
 	case "c", "continue":
 		if err := dapClient.Call("DAPService.Continue", struct{}{}, nil); err != nil {
 			log.Printf("Error calling continue: %s", err)
 		}
-		return false
+		return false, false
 
 	case "n", "next":
 		var granularity string
@@ -145,15 +172,15 @@ func handleCommand(line string, dapClient *rpc.Client) (keepLooping bool) {
 		if err := dapClient.Call("DAPService.Next", granularity, nil); err != nil {
 			log.Printf("Error calling next: %s", err)
 		}
-		return false
+		return false, false
 
 	case "e", "eval", "evaluate":
 		evaluate(dapClient, strings.Join(words[1:], " "))
-		return true
+		return true, false
 
 	default:
 		evaluate(dapClient, line)
-		return true
+		return true, false
 	}
 }
 
