@@ -9,10 +9,13 @@ import (
 	"io"
 	"log"
 	"os/exec"
+	"strings"
 	"sync"
 
 	"github.com/dradtke/debug-console/types"
 )
+
+const VerboseLogging = true
 
 type Conn struct {
 	cmd                *exec.Cmd
@@ -45,6 +48,9 @@ func (c *Conn) Stop() {
 }
 
 func (c *Conn) HandleErr() {
+	if c.err == nil {
+		return
+	}
 	scanner := bufio.NewScanner(c.err)
 	for scanner.Scan() {
 		log.Printf("<! %s", scanner.Text())
@@ -52,12 +58,16 @@ func (c *Conn) HandleErr() {
 }
 
 func (c *Conn) HandleOut() {
+	if c.out == nil {
+		log.Printf("No output stream to read!")
+		return
+	}
 	var (
 		scratch = make([]byte, 4096)
 		buf     bytes.Buffer
 	)
 	for {
-		_ /*rawHeaders*/, _, body, err := ReadMessage(c.out, scratch, &buf)
+		_ /*headers*/, rawHeaders, body, err := ReadMessage(c.out, scratch, &buf)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				log.Print("dap exiting")
@@ -68,20 +78,22 @@ func (c *Conn) HandleOut() {
 		}
 
 		/*
-		var buf bytes.Buffer
-		if err := json.Indent(&buf, []byte(body), "", "  "); err != nil {
-			panic(err)
-		}
-		log.Println(buf.String())
+			var buf bytes.Buffer
+			if err := json.Indent(&buf, []byte(body), "", "  "); err != nil {
+				panic(err)
+			}
+			log.Println(buf.String())
 		*/
 
-		//for _, line := range strings.Split(rawHeaders, NL) {
-		//	log.Printf("<< %s", line)
-		//}
-		//log.Println("<<")
-		//for _, line := range strings.Split(body, NL) {
-		//	log.Printf("<< %s", line)
-		//}
+		if VerboseLogging {
+			for _, line := range strings.Split(rawHeaders, NL) {
+				log.Printf("<< %s", line)
+			}
+			log.Println("<<")
+			for _, line := range strings.Split(body, NL) {
+				log.Printf("<< %s", line)
+			}
+		}
 
 		var parsed struct {
 			Type string `json:"type"`
@@ -155,9 +167,13 @@ func (c *Conn) SendMessage(msg any) error {
 	if err != nil {
 		return fmt.Errorf("Process.SendMessage: error building message: %w", err)
 	}
-	//for _, line := range strings.Split(string(b), NL) {
-	//	log.Printf(">> %s", line)
-	//}
+
+	if VerboseLogging {
+		for _, line := range strings.Split(string(b), NL) {
+			log.Printf(">> %s", line)
+		}
+	}
+
 	c.inMu.Lock()
 	defer c.inMu.Unlock()
 	if _, err := c.in.Write(b); err != nil {
