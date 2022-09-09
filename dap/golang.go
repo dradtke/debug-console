@@ -22,10 +22,19 @@ func GoConnector(dapDir string) func() (Connector, error) {
 			}
 		}
 
-		return Subprocess([]string{
-			"node",
-			filepath.Join(dir, "extension/dist/debugAdapter.js"),
-		}), nil
+		return Subprocess{
+			Command: []string{
+				"node",
+				filepath.Join(dir, "extension/dist/debugAdapter.js"),
+			},
+		}, nil
+		// TODO: "dlv dap" doesn't seem to work correctly yet
+		/*
+			return Subprocess{
+				Command:       []string{"dlv", "dap"},
+				DialClientArg: "--client-addr",
+			}, nil
+		*/
 	}
 }
 
