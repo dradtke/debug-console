@@ -26,7 +26,9 @@ type DAP struct {
 	Capabilities       *types.Capabilities
 	ConsoleClient      *rpc.Client
 	OutputBroadcaster  *OutputBroadcaster
+
 	StoppedLocation    *types.StackFrame
+	StoppedThreadID int
 }
 
 type DapCommandFunc func(string) ([]string, error)
@@ -206,6 +208,10 @@ func (d *DAP) HandleStopped(stopped types.StoppedEvent) (*types.StackFrame, erro
 	if stopped.ThreadID == nil {
 		return nil, nil
 	}
+
+	d.Lock()
+	d.StoppedThreadID = *stopped.ThreadID
+	d.Unlock()
 
 	resp, err := d.SendRequest(types.NewStackTraceRequest(types.StackTraceArguments{
 		ThreadID: *stopped.ThreadID,

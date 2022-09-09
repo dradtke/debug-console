@@ -10,6 +10,10 @@ func (r DAPService) Continue(_ struct{}, _ *struct{}) error {
 	return r.d.Continue()
 }
 
+func (r DAPService) Next(granularity string, _ *struct{}) error {
+	return r.d.Next(granularity)
+}
+
 func (r DAPService) Evaluate(args types.EvaluateArguments, result *string) error {
 	v, err := r.d.Conn.Evaluate(args)
 	if err != nil {

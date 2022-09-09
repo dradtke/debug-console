@@ -163,3 +163,18 @@ func NewCompletionsRequest(args CompletionsArguments) Request {
 		Arguments: args,
 	}
 }
+
+type NextArguments struct {
+	ThreadID            int    `json:"threadId"`
+	SteppingGranularity string `json:"steppingGranularity,omitempty"`
+}
+
+func NewNextRequest(args NextArguments) Request {
+	return struct {
+		request
+		Arguments NextArguments `json:"arguments"`
+	}{
+		request:   newRequest("next"),
+		Arguments: args,
+	}
+}

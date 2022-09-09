@@ -137,6 +137,16 @@ func handleCommand(line string, dapClient *rpc.Client) (keepLooping bool) {
 		}
 		return false
 
+	case "n", "next":
+		var granularity string
+		if len(words) > 1 {
+			granularity = words[1]
+		}
+		if err := dapClient.Call("DAPService.Next", granularity, nil); err != nil {
+			log.Printf("Error calling next: %s", err)
+		}
+		return false
+
 	case "e", "eval", "evaluate":
 		evaluate(dapClient, strings.Join(words[1:], " "))
 		return true

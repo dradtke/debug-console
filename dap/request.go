@@ -2,6 +2,7 @@ package dap
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/dradtke/debug-console/types"
@@ -25,6 +26,22 @@ func (d *DAP) Continue() error {
 	d.Lock()
 	defer d.Unlock()
 	_, err := d.Conn.SendRequest(types.NewContinueRequest())
+	if err == nil {
+		d.StoppedLocation = nil
+	}
+	return err
+}
+
+func (d *DAP) Next(granularity string) error {
+	d.Lock()
+	defer d.Unlock()
+	if d.StoppedThreadID == 0 {
+		return errors.New("no stopped thread!")
+	}
+	_, err := d.Conn.SendRequest(types.NewNextRequest(types.NextArguments{
+		ThreadID:            d.StoppedThreadID,
+		SteppingGranularity: granularity,
+	}))
 	if err == nil {
 		d.StoppedLocation = nil
 	}
