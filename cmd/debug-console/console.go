@@ -73,6 +73,8 @@ func consoleInputLoop(c console.ConsoleService, dapClient *rpc.Client) error {
 		lines     []string
 	)
 
+	// TODO: remove the non-interactivity
+	// For some reason doing that breaks the plugin?
 	for {
 		// TODO: see if the program is running or not?
 		fmt.Println("Running...")
@@ -130,7 +132,7 @@ func handleCommand(line string, dapClient *rpc.Client) (keepLooping, toggleMulti
 	words := strings.Split(line, " ")
 	switch words[0] {
 	case "?", "h", "help":
-		fmt.Println("TODO: put help here")
+		help()
 		return true, false
 
 	case "ml", "multiline":
@@ -158,9 +160,35 @@ func handleCommand(line string, dapClient *rpc.Client) (keepLooping, toggleMulti
 		}
 		return true, false
 
-	case "c", "continue":
+	case "c", "cont", "continue":
 		if err := dapClient.Call("DAPService.Continue", struct{}{}, nil); err != nil {
 			log.Printf("Error calling continue: %s", err)
+		}
+		return false, false
+
+	case "step":
+		if len(words) < 2 {
+			fmt.Println("Must specify 'in', 'out', or 'back'")
+			return true, false
+		}
+		switch stepDir := words[1]; stepDir {
+		case "in":
+			if err := dapClient.Call("DAPService.StepIn", struct{}{}, nil); err != nil {
+				log.Printf("Error calling stepIn: %s", err)
+			}
+		case "out":
+			if err := dapClient.Call("DAPService.StepOut", struct{}{}, nil); err != nil {
+				log.Printf("Error calling stepOut: %s", err)
+			}
+		case "back":
+			// this will need more testing....
+			if err := dapClient.Call("DAPService.StepBack", struct{}{}, nil); err != nil {
+				log.Printf("Error calling stepBack: %s", err)
+			}
+			return true, false
+		default:
+			fmt.Printf("Unknown step direction: %s\n", stepDir)
+			return true, false
 		}
 		return false, false
 
@@ -194,4 +222,21 @@ func evaluate(dapClient *rpc.Client, expression string) {
 	} else {
 		fmt.Println(result)
 	}
+}
+
+func help() {
+	fmt.Print(`Available commands:
+
+  ?, h, help                              Show this help
+  ml, multiline                           Toggle multiline mode
+  caps, capabilities                      View the DAP server's capabilities
+  c, cont, continue                       Continue execution
+  n, next [statement|line|instruction]    Next statement, line, or instruction (default: statement)
+  step (in, out, back)                    Step in, out, or back
+  e, eval, evaluate [statement]           Evaluate a statement
+  threads                                 Show running threads
+
+Unrecognized commands will be evaluated as a statement.
+
+`)
 }

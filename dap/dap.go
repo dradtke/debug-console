@@ -53,7 +53,10 @@ func (d *DAP) Run(f func() (Connector, error), onExit func()) (conn *Conn, err e
 	}
 
 	defer func() {
-		if err != nil && conn != nil {
+		if r := recover(); r != nil {
+			log.Printf("Panic: %s", r)
+			conn.Stop()
+		} else if err != nil && conn != nil {
 			log.Print("Stopping existing connection")
 			conn.Stop()
 		}

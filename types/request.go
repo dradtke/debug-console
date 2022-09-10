@@ -57,6 +57,18 @@ func NewContinueRequest() Request {
 	return newRequest("continue")
 }
 
+func NewStepInRequest() Request {
+	return newRequest("stepIn")
+}
+
+func NewStepOutRequest() Request {
+	return newRequest("stepOut")
+}
+
+func NewStepBackRequest() Request {
+	return newRequest("stepBack")
+}
+
 func NewThreadsRequest() Request {
 	return newRequest("threads")
 }

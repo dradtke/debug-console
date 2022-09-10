@@ -32,6 +32,36 @@ func (d *DAP) Continue() error {
 	return err
 }
 
+func (d *DAP) StepIn() error {
+	d.Lock()
+	defer d.Unlock()
+	_, err := d.Conn.SendRequest(types.NewStepInRequest())
+	if err == nil {
+		d.StoppedLocation = nil
+	}
+	return err
+}
+
+func (d *DAP) StepOut() error {
+	d.Lock()
+	defer d.Unlock()
+	_, err := d.Conn.SendRequest(types.NewStepOutRequest())
+	if err == nil {
+		d.StoppedLocation = nil
+	}
+	return err
+}
+
+func (d *DAP) StepBack() error {
+	d.Lock()
+	defer d.Unlock()
+	_, err := d.Conn.SendRequest(types.NewStepBackRequest())
+	if err == nil {
+		d.StoppedLocation = nil
+	}
+	return err
+}
+
 func (d *DAP) Next(granularity string) error {
 	d.Lock()
 	defer d.Unlock()

@@ -10,6 +10,18 @@ func (r DAPService) Continue(_ struct{}, _ *struct{}) error {
 	return r.d.Continue()
 }
 
+func (r DAPService) StepIn(_ struct{}, _ *struct{}) error {
+	return r.d.StepIn()
+}
+
+func (r DAPService) StepOut(_ struct{}, _ *struct{}) error {
+	return r.d.StepOut()
+}
+
+func (r DAPService) StepBack(_ struct{}, _ *struct{}) error {
+	return r.d.StepBack()
+}
+
 func (r DAPService) Next(granularity string, _ *struct{}) error {
 	return r.d.Next(granularity)
 }
