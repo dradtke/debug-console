@@ -120,6 +120,7 @@ func Main(exe string) error {
 		d.EditorEventHandler = HandleEvent(p.Nvim, d) // this feels weird to do
 		p.HandleAutocmd(&plugin.AutocmdOptions{Event: "VimLeave", Pattern: "*"}, d.Stop)
 		RegisterCommands(p, d)
+		RegisterFunctions(p, d)
 		return nil
 	})
 

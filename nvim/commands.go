@@ -30,7 +30,8 @@ func DebugRun(d *dap.DAP) any {
 		switch eval.Filetype {
 		case "go":
 			go func() {
-				p, err := d.Run(dap.GoConnector(d.Dir), OnDapExit(v))
+				// TODO: use Go dap configuration specified by SetConfig()
+				p, err := d.Run(dap.GoConnector(), OnDapExit(v))
 				if err != nil {
 					log.Printf("Error starting debug adapter: %s", err)
 					return

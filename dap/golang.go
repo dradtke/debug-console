@@ -3,8 +3,6 @@ package dap
 import (
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/dradtke/debug-console/types"
@@ -13,19 +11,20 @@ import (
 // dlv is at ~/.asdf/installs/golang/1.18.3/packages/bin/dlv
 // other source & docs are around there, too
 
-func GoConnector(dapDir string) func() (Connector, error) {
+func GoConnector() func() (Connector, error) {
 	return func() (Connector, error) {
-		dir := filepath.Join(dapDir, "golang")
-		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			if err = DownloadGo(dir); err != nil {
-				return nil, fmt.Errorf("Go: error downloading adapter: %w", err)
+		/*
+			dir := filepath.Join(dapDir, "golang")
+			if _, err := os.Stat(dir); os.IsNotExist(err) {
+				if err = DownloadGo(dir); err != nil {
+					return nil, fmt.Errorf("Go: error downloading adapter: %w", err)
+				}
 			}
-		}
+		*/
 
 		return Subprocess{
 			Command: []string{
-				"node",
-				filepath.Join(dir, "extension/dist/debugAdapter.js"),
+				"/home/damien/.local/share/nvim/mason/bin/go-debug-adapter",
 			},
 		}, nil
 		// TODO: "dlv dap" doesn't seem to work correctly yet
