@@ -110,18 +110,10 @@ func Main(exe string) error {
 		if err := setLogOutput(); err != nil {
 			log.Print(err)
 		}
-
-		dapDir = os.Getenv("DAP_DIR")
-		if _, err := os.Stat(dapDir); os.IsNotExist(err) {
-			if err = os.MkdirAll(dapDir, 0644); err != nil {
-				return fmt.Errorf("failed to create dap cache dir: %w", err)
-			}
-		}
 	}
 
 	d := &dap.DAP{
 		Exe: exe,
-		Dir: os.Getenv("DAP_DIR"),
 	}
 
 	plugin.Main(func(p *plugin.Plugin) error {

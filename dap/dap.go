@@ -19,8 +19,6 @@ type DAP struct {
 
 	// Exe is the executable, used for launching the console.
 	Exe string
-	// Dir is where debug adapters are saved locally.
-	Dir                string
 	EditorEventHandler types.EventHandler
 	Conn               *Conn
 	Capabilities       *types.Capabilities

@@ -16,7 +16,6 @@ function! s:Start(host) abort
 				\ 'rpc': v:true,
 				\ 'env': {
 					\ 'LOG_FILE': l:cache.'/debug-console.log',
-					\ 'DAP_DIR': l:cache.'/dap',
 					\ },
 				\ })
 endfunction
