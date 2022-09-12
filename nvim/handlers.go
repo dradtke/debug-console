@@ -7,6 +7,7 @@ import (
 
 	"github.com/dradtke/debug-console/dap"
 	"github.com/dradtke/debug-console/types"
+	"github.com/dradtke/debug-console/util"
 	"github.com/neovim/go-client/nvim"
 )
 
@@ -20,6 +21,7 @@ func HandleEvent(v *nvim.Nvim, d *dap.DAP) types.EventHandler {
 				log.Printf("Error parsing body: %s", err)
 			}
 			go func() {
+				defer util.LogPanic()
 				stackFrame, err := d.HandleStopped(stopped)
 				if err != nil {
 					log.Printf("Error handling stop: %s", err)

@@ -58,7 +58,10 @@ func runConsole(args []string) error {
 
 	s := rpc.NewServer()
 	s.Register(console)
-	go s.Accept(consoleListener)
+	go func() {
+		defer util.LogPanic()
+		s.Accept(consoleListener)
+	}()
 
 	if err := consoleInputLoop(console, dapClient); err != nil {
 		fmt.Println(err)

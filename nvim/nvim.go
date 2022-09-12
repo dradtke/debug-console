@@ -8,6 +8,7 @@ import (
 
 	"github.com/dradtke/debug-console/dap"
 	"github.com/dradtke/debug-console/types"
+	"github.com/dradtke/debug-console/util"
 	"github.com/neovim/go-client/nvim"
 	"github.com/neovim/go-client/nvim/plugin"
 )
@@ -48,6 +49,7 @@ func SendConfiguration(v *nvim.Nvim, p *dap.Conn) error {
 
 	for buffer, breakpointSigns := range allBreakpointSigns {
 		go func(buffer nvim.Buffer, breakpointSigns []SignInfo) {
+			defer util.LogPanic()
 			bufferPath, err := BufferPath(v, buffer)
 			if err != nil {
 				addErr(fmt.Errorf("SendConfiguration: %w", err))

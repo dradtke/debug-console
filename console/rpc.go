@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/chzyer/readline"
+	"github.com/dradtke/debug-console/util"
 )
 
 type ConsoleService struct {
@@ -28,6 +29,7 @@ func NewConsole(dapClient *rpc.Client) (ConsoleService, error) {
 func (c ConsoleService) Stop(_ struct{}, _ *struct{}) error {
 	// Allow the function to return before exiting in order to avoid an "unexpected EOF" error.
 	go func() {
+		defer util.LogPanic()
 		time.Sleep(100 * time.Millisecond)
 		c.Prompt.Close()
 		os.Exit(0)

@@ -10,34 +10,47 @@ import (
 	"github.com/dradtke/debug-console/types"
 )
 
-// Connector is an interface describing how to connect to a debug adapter.
-// The two main options are to spawn a subprocess, or to connect to one that
-// is already running.
-type Connector interface {
-	Connect(eventHandlers []types.EventHandler) (*Conn, error)
+// Map from filetype to Config
+type ConfigMap map[string]Config
+
+type Config struct {
+	RunField    ConfigRun `msgpack:"run"`
+	Launch string    `msgpack:"launch"`
 }
 
-type Subprocess struct {
-	Command       []string
-	DialClientArg string
+type ConfigRun struct {
+	Type    string   `msgpack:"type"`    // subprocess, lsp command (jdtls), etc.
+	Command []string `msgpack:"command"` // populated for subprocess
+
+	// Used for 'dlv dap' and anything that behaves similarly.
+	DialClientArg string `msgpack:"dialClientArg"`
 }
 
-func (s Subprocess) Connect(eventHandlers []types.EventHandler) (*Conn, error) {
-	cmd := exec.Command(s.Command[0], s.Command[1:]...)
+func (r ConfigRun) Run(eventHandlers []types.EventHandler) (*Conn, error) {
+	switch r.Type {
+	case "subprocess":
+		return r.runSubprocess(eventHandlers)
+	default:
+		return nil, fmt.Errorf("unknown run type: %s", r.Type)
+	}
+}
+
+func (r ConfigRun) runSubprocess(eventHandlers []types.EventHandler) (*Conn, error) {
+	cmd := exec.Command(r.Command[0], r.Command[1:]...)
 	conn := &Conn{
 		cmd:              cmd,
 		eventHandlers:    eventHandlers,
 		responseHandlers: make(map[int64]chan<- types.Response),
 	}
 
-	if s.DialClientArg != "" {
+	if r.DialClientArg != "" {
 		// Listen for the server to connect to us
 		listener, err := net.Listen("tcp", "localhost:0")
 		if err != nil {
 			return nil, fmt.Errorf("Error creating listener: %w", err)
 		}
 		defer listener.Close()
-		cmd.Args = append(cmd.Args, s.DialClientArg, listener.Addr().String())
+		cmd.Args = append(cmd.Args, r.DialClientArg, listener.Addr().String())
 		log.Printf("Starting command: %s", strings.Join(conn.cmd.Args, " "))
 		if err := conn.cmd.Start(); err != nil {
 			return nil, fmt.Errorf("Error spawning debug adapter process: error starting process: %w", err)
@@ -76,25 +89,5 @@ func (s Subprocess) Connect(eventHandlers []types.EventHandler) (*Conn, error) {
 
 	go conn.HandleOut()
 	go conn.HandleErr()
-	return conn, nil
-}
-
-type Connection struct {
-	Network, Address string
-}
-
-func (c Connection) Connect(eventHandlers []types.EventHandler) (*Conn, error) {
-	rawConn, err := net.Dial(c.Network, c.Address)
-	if err != nil {
-		return nil, fmt.Errorf("Error connecting to debug adapter at %s: %w", c.Address, err)
-	}
-	conn := &Conn{
-		out:              rawConn,
-		in:               rawConn,
-		eventHandlers:    eventHandlers,
-		responseHandlers: make(map[int64]chan<- types.Response),
-	}
-	go conn.HandleOut()
-	// go c.HandleStderr()
 	return conn, nil
 }

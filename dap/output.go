@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/dradtke/debug-console/types"
+	"github.com/dradtke/debug-console/util"
 )
 
 // ???: Is it overengineered to support multiple connections to this?
@@ -49,7 +50,10 @@ func NewOutputBroadcaster() (*OutputBroadcaster, error) {
 		return nil, fmt.Errorf("BroadcastOutput: %w", err)
 	}
 	b := &OutputBroadcaster{l: l, conns: make([]connWithEncoder, 0, 1), firstConnSeenCh: make(chan struct{})}
-	go b.listen()
+	go func() {
+		defer util.LogPanic()
+		b.listen()
+	}()
 	return b, nil
 }
 

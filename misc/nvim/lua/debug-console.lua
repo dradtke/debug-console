@@ -1,12 +1,15 @@
 local M = {}
 
-function init()
+function init(config)
 	vim.cmd 'runtime debug-console.vim'
 	-- Register DAP configurations
-	vim.fn.DebugConsoleSetConfig()
+	for _,v in pairs(config) do
+		v.launch = string.dump(v.launch)
+	end
+	vim.fn.DebugConsoleSetConfig(config)
 end
 
-M.setup = function(plugin_path)
+M.setup = function(plugin_path, config)
 	local repo_root = vim.fn.fnamemodify(plugin_path, ':h:h')
 	vim.fn.mkdir(repo_root..'/bin', 'p')
 	--local build_command = 'cd '..vim.fn.shellescape(repo_root)..' && go build -o ./bin ./cmd/debug-console'
@@ -23,13 +26,12 @@ M.setup = function(plugin_path)
 		end,
 		on_exit = function(job_id, exit_code, event_type)
 			if exit_code == 0 then
-				init()
+				init(config)
 			else
 				print('debug-console: build exited with code: '..exit_code)
 			end
 		end,
 	})
-
 end
 
 return M

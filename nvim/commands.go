@@ -5,6 +5,8 @@ import (
 	"log"
 
 	"github.com/dradtke/debug-console/dap"
+	"github.com/dradtke/debug-console/types"
+	"github.com/dradtke/debug-console/util"
 	"github.com/neovim/go-client/nvim"
 	"github.com/neovim/go-client/nvim/plugin"
 )
@@ -27,27 +29,31 @@ func DebugRun(d *dap.DAP) any {
 		Filetype string `eval:"getbufvar(bufnr('%'), '&filetype')"`
 	}) error {
 		log.Print("Starting debug run")
-		switch eval.Filetype {
-		case "go":
-			go func() {
-				// TODO: use Go dap configuration specified by SetConfig()
-				p, err := d.Run(dap.GoConnector(), OnDapExit(v))
-				if err != nil {
-					log.Printf("Error starting debug adapter: %s", err)
-					return
-				}
-				log.Print("Go debug adapter initialized, launching")
-				if _, err := d.GoLaunch(eval.Path); err != nil {
-					log.Printf("Error launching Go: %s", err)
-					return
-				}
-				if err := SendConfiguration(v, p); err != nil {
-					log.Printf("Error sending configuration: %s", err)
-				}
-			}()
-		default:
-			return fmt.Errorf("unsupported filetype: %s", eval.Filetype)
-		}
+		go func() {
+			defer util.LogPanic()
+			p, config, err := d.Run(eval.Filetype, eval.Path, OnDapExit(v))
+			if err != nil {
+				log.Printf("Error starting debug adapter: %s", err)
+				return
+			}
+			log.Print("Go debug adapter initialized, launching")
+
+			var launchArgs map[string]any
+			if err := v.ExecLua(config.Launch, &launchArgs, eval.Path); err != nil {
+				log.Printf("Error getting launch arguments: %s", err)
+				return
+			}
+
+			if _, err = p.SendRequest(types.NewLaunchRequest(launchArgs)); err != nil {
+				log.Printf("Error executing launch request: %s", err)
+				return
+			}
+
+			if err = SendConfiguration(v, p); err != nil {
+				log.Printf("Error sending configuration: %s", err)
+				return
+			}
+		}()
 		return nil
 	}
 }

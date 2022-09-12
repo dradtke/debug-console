@@ -18,35 +18,36 @@ type DAP struct {
 	sync.RWMutex
 
 	// Exe is the executable, used for launching the console.
-	Exe string
+	Exe                string
+	ConfigMap          ConfigMap
 	EditorEventHandler types.EventHandler
 	Conn               *Conn
 	Capabilities       *types.Capabilities
 	ConsoleClient      *rpc.Client
 	OutputBroadcaster  *OutputBroadcaster
 
-	StoppedLocation    *types.StackFrame
+	StoppedLocation *types.StackFrame
 	StoppedThreadID int
 }
 
 type DapCommandFunc func(string) ([]string, error)
 
-func (d *DAP) Run(f func() (Connector, error), onExit func()) (conn *Conn, err error) {
+func (d *DAP) Run(filetype, path string, onExit func()) (conn *Conn, config Config, err error) {
 	d.RLock()
 	if d.Conn != nil {
 		defer d.RUnlock()
-		return nil, errors.New("A debug adapter is already running")
+		return nil, Config{}, errors.New("A debug adapter is already running")
 	}
 	d.RUnlock()
 
 	log.Printf("Starting debug adapter...")
-	connector, err := f()
-	if err != nil {
-		return nil, fmt.Errorf("Error creating connector: %w", err)
+	config, ok := d.ConfigMap[filetype]
+	if !ok {
+		return nil, config, fmt.Errorf("No configuration found for filetype: %s", filetype)
 	}
 
 	eventHandlers := []types.EventHandler{d.HandleEvent, d.EditorEventHandler}
-	if conn, err = connector.Connect(eventHandlers); err != nil {
+	if conn, err = config.RunField.Run(eventHandlers); err != nil {
 		log.Printf("Failed to start debug adapter process: %s", err)
 	}
 
@@ -65,6 +66,7 @@ func (d *DAP) Run(f func() (Connector, error), onExit func()) (conn *Conn, err e
 	d.Unlock()
 
 	go func() {
+		defer util.LogPanic()
 		if err := conn.Wait(); err != nil {
 			// ???: Suppress this message if the adapter was killed by Neovim exiting?
 			log.Printf("Debug adapter exited with error: %s", err)
@@ -77,12 +79,12 @@ func (d *DAP) Run(f func() (Connector, error), onExit func()) (conn *Conn, err e
 
 	log.Printf("Started debug adapter")
 	if err = d.StartConsole(); err != nil {
-		return conn, fmt.Errorf("Starting console: %w", err)
+		return conn, config, fmt.Errorf("Starting console: %w", err)
 	}
 
 	resp, err := conn.Initialize()
 	if err != nil {
-		return conn, fmt.Errorf("Error initializing debug adapter: %w", err)
+		return conn, config, fmt.Errorf("Error initializing debug adapter: %w", err)
 	}
 	d.Capabilities = &types.Capabilities{}
 	if err := json.Unmarshal(resp.Body, d.Capabilities); err != nil {
@@ -90,10 +92,10 @@ func (d *DAP) Run(f func() (Connector, error), onExit func()) (conn *Conn, err e
 	}
 
 	if d.OutputBroadcaster, err = NewOutputBroadcaster(); err != nil {
-		return conn, fmt.Errorf("Creating output broadcaster: %w", err)
+		return conn, config, fmt.Errorf("Creating output broadcaster: %w", err)
 	}
 
-	return conn, nil
+	return conn, config, nil
 }
 
 func (d *DAP) Stop() {
@@ -143,7 +145,10 @@ func (d *DAP) StartConsole() error {
 
 	dapServer := rpc.NewServer()
 	dapServer.Register(DAPService{d})
-	go dapServer.Accept(dapListener)
+	go func() {
+		defer util.LogPanic()
+		dapServer.Accept(dapListener)
+	}()
 
 	args := []string{
 		d.Exe,
