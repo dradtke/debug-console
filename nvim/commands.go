@@ -1,6 +1,7 @@
 package nvim
 
 import (
+	"errors"
 	"fmt"
 	"log"
 
@@ -12,7 +13,11 @@ import (
 )
 
 func RegisterCommands(p *plugin.Plugin, d *dap.DAP) {
-	p.HandleCommand(&plugin.CommandOptions{Name: "DebugRun", Eval: "*"}, DebugRun(d))
+	p.HandleCommand(&plugin.CommandOptions{
+		Name: "DebugRun",
+		NArgs: "+",
+		Eval: "*",
+	}, DebugRun(d))
 	p.HandleCommand(&plugin.CommandOptions{Name: "ToggleBreakpoint"}, ToggleBreakpoint(d))
 	p.HandleCommand(&plugin.CommandOptions{Name: "CurrentLocation"}, CurrentLocation(d))
 }
@@ -24,14 +29,27 @@ func OnDapExit(v *nvim.Nvim) func() {
 }
 
 func DebugRun(d *dap.DAP) any {
-	return func(v *nvim.Nvim, eval *struct {
+	return func(v *nvim.Nvim, args []string, eval *struct {
 		Path     string `eval:"expand('%:p')"`
 		Filetype string `eval:"getbufvar(bufnr('%'), '&filetype')"`
 	}) error {
 		log.Print("Starting debug run")
+		dapConfig, ok := d.ConfigMap[eval.Filetype]
+		if !ok {
+			return fmt.Errorf("No DAP configuration found for filetype: %s", eval.Filetype)
+		}
+		if len(args) == 0 {
+			return errors.New("No arguments specified; need at least a launch configuration name")
+		}
+		launchConfigName := args[0]
+		launchConfigArgs := args[1:]
+		launchConfigFunc, ok := dapConfig.LaunchArgFuncs[launchConfigName]
+		if !ok {
+			return fmt.Errorf("No launch config named '%s' found for filetype %s", args[0], eval.Filetype)
+		}
 		go func() {
 			defer util.LogPanic()
-			p, config, err := d.Run(eval.Filetype, eval.Path, OnDapExit(v))
+			p, err := d.Run(dapConfig, OnDapExit(v))
 			if err != nil {
 				log.Printf("Error starting debug adapter: %s", err)
 				return
@@ -39,7 +57,7 @@ func DebugRun(d *dap.DAP) any {
 			log.Print("Go debug adapter initialized, launching")
 
 			var launchArgs map[string]any
-			if err := v.ExecLua(config.Launch, &launchArgs, eval.Path); err != nil {
+			if err := v.ExecLua(launchConfigFunc, &launchArgs, eval.Path, launchConfigArgs); err != nil {
 				log.Printf("Error getting launch arguments: %s", err)
 				return
 			}

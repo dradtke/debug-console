@@ -32,19 +32,15 @@ type DAP struct {
 
 type DapCommandFunc func(string) ([]string, error)
 
-func (d *DAP) Run(filetype, path string, onExit func()) (conn *Conn, config Config, err error) {
+func (d *DAP) Run(config Config, onExit func()) (conn *Conn, err error) {
 	d.RLock()
 	if d.Conn != nil {
 		defer d.RUnlock()
-		return nil, Config{}, errors.New("A debug adapter is already running")
+		return nil, errors.New("A debug adapter is already running")
 	}
 	d.RUnlock()
 
 	log.Printf("Starting debug adapter...")
-	config, ok := d.ConfigMap[filetype]
-	if !ok {
-		return nil, config, fmt.Errorf("No configuration found for filetype: %s", filetype)
-	}
 
 	eventHandlers := []types.EventHandler{d.HandleEvent, d.EditorEventHandler}
 	if conn, err = config.RunField.Run(eventHandlers); err != nil {
@@ -79,12 +75,12 @@ func (d *DAP) Run(filetype, path string, onExit func()) (conn *Conn, config Conf
 
 	log.Printf("Started debug adapter")
 	if err = d.StartConsole(); err != nil {
-		return conn, config, fmt.Errorf("Starting console: %w", err)
+		return conn, fmt.Errorf("Starting console: %w", err)
 	}
 
 	resp, err := conn.Initialize()
 	if err != nil {
-		return conn, config, fmt.Errorf("Error initializing debug adapter: %w", err)
+		return conn, fmt.Errorf("Error initializing debug adapter: %w", err)
 	}
 	d.Capabilities = &types.Capabilities{}
 	if err := json.Unmarshal(resp.Body, d.Capabilities); err != nil {
@@ -92,10 +88,10 @@ func (d *DAP) Run(filetype, path string, onExit func()) (conn *Conn, config Conf
 	}
 
 	if d.OutputBroadcaster, err = NewOutputBroadcaster(); err != nil {
-		return conn, config, fmt.Errorf("Creating output broadcaster: %w", err)
+		return conn, fmt.Errorf("Creating output broadcaster: %w", err)
 	}
 
-	return conn, config, nil
+	return conn, nil
 }
 
 func (d *DAP) Stop() {

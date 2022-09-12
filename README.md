@@ -11,30 +11,8 @@ use {
 	'dradtke/debug-console',
 	rtp = 'misc/nvim',
 	config = function(name, plugin)
-		local mason_dir = '/home/damien/.local/share/nvim/mason'  -- TODO: get mason dir
 		require('debug-console').setup(plugin.path, {
-			go = {
-				run = {
-					type = 'subprocess',
-					command = {mason_dir..'/bin/go-debug-adapter'},
-				},
-				-- TODO: support multiple launch configurations
-				launch = function(filepath)
-					local launch_args = {
-						request = 'launch',
-						program = filepath,
-						dlvToolPath = '/home/damien/.asdf/installs/golang/1.18.3/packages/bin/dlv',
-						args = {}
-					}
-					local test_suffix = '_test.go'
-					if filepath:sub(-#test_suffix) == test_suffix then
-						launch_args['mode'] = 'test'
-					else
-						launch_args['mode'] = 'debug'
-					end
-					return launch_args
-				end,
-			},
+			-- Filetype DAP configurations
 		})
 	end,
 }
@@ -53,5 +31,17 @@ communication over standard streams, but other behaviors exist too.
 The `launch` object tells the plugin how to send the `launch` request to the adapter once it's
 running. This takes a function (TODO: multiple functions?) that should return the arguments to be
 passed to the request.
+
+## Running
+
+```
+:DebugRun <launch configuration> [args...]
+```
+
+As an example, to run a Go test file with verbose output (equivalent to running `go test -v`):
+
+```
+:DebugRun test -test.v
+```
 
 <!-- vim: set tw=100: -->

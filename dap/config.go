@@ -14,8 +14,9 @@ import (
 type ConfigMap map[string]Config
 
 type Config struct {
-	RunField    ConfigRun `msgpack:"run"`
-	Launch string    `msgpack:"launch"`
+	RunField ConfigRun `msgpack:"run"`
+	// TODO: ability to specify default launch configuration?
+	LaunchArgFuncs map[string]string `msgpack:"launch"`
 }
 
 type ConfigRun struct {

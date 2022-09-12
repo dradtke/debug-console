@@ -1,11 +1,40 @@
 local M = {}
 
-function init(config)
+local mason_dir = vim.fn.stdpath('data')..'/mason'
+
+local default_config = {
+	go = {
+		run = {
+			type = 'subprocess',
+			command = {mason_dir..'/bin/go-debug-adapter'},
+		},
+		launch = {
+			test = function(filepath, args)
+				return {
+					request = 'launch',
+					program = filepath,
+					dlvToolPath = vim.fn.exepath('dlv'),
+					mode = 'test',
+					args = args,
+				}
+			end,
+		}
+	},
+}
+
+function init(user_config)
 	vim.cmd 'runtime debug-console.vim'
-	-- Register DAP configurations
-	for _,v in pairs(config) do
-		v.launch = string.dump(v.launch)
+
+	config = default_config
+	for k,v in pairs(user_config) do
+		config[k] = v
 	end
+	for _,c in pairs(config) do
+		for k,v in pairs(c.launch) do
+			c.launch[k] = string.dump(v)
+		end
+	end
+	print(vim.inspect(config))
 	vim.fn.DebugConsoleSetConfig(config)
 end
 
