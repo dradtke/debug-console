@@ -18,13 +18,15 @@ import (
 const VerboseLogging = false
 
 type Conn struct {
-	cmd                *exec.Cmd
-	out, err           io.ReadCloser
-	in                 io.WriteCloser
-	inMu               sync.Mutex
-	eventHandlers      []types.EventHandler
-	responseHandlers   map[int64]chan<- types.Response
-	responseHandlersMu sync.Mutex
+	cmd                  *exec.Cmd
+	out, err             io.ReadCloser
+	in                   io.WriteCloser
+	inMu                 sync.Mutex
+	eventHandlers        []types.EventHandler
+	responseHandlers     map[int64]chan<- types.Response
+	responseHandlersMu   sync.Mutex
+	initializedEventSeen chan struct{}
+	seeInitializeEvent   sync.Once
 }
 
 func (c *Conn) Wait() error {
@@ -109,6 +111,8 @@ func (c *Conn) HandleOut() {
 				log.Printf("dap stdout: error parsing response: %s", err)
 			}
 
+			log.Printf("Received response to: %s", resp.Command)
+
 			c.responseHandlersMu.Lock()
 			ch := c.responseHandlers[resp.RequestSeq]
 			delete(c.responseHandlers, resp.RequestSeq)
@@ -123,6 +127,7 @@ func (c *Conn) HandleOut() {
 			if err := json.Unmarshal([]byte(body), &event); err != nil {
 				log.Printf("dap stdout: error parsing event: %s", err)
 			}
+			log.Printf("Event: %s", event.Type)
 			for _, f := range c.eventHandlers {
 				f(event)
 			}
@@ -180,4 +185,8 @@ func (c *Conn) SendMessage(msg any) error {
 		return fmt.Errorf("Process.SendMessage: error sending message: %w", err)
 	}
 	return nil
+}
+
+func (c *Conn) InitializedEventSeen() <-chan struct{} {
+	return c.initializedEventSeen
 }

@@ -10,8 +10,40 @@ import (
 	"github.com/dradtke/debug-console/types"
 )
 
-// Map from filetype to Config
 type ConfigMap map[string]Config
+
+type Configs struct {
+	// default by filetype + name
+	Defaults map[string]ConfigMap `msgpack:"defaults"`
+
+	// user configs by name
+	User ConfigMap `msgpack:"user"`
+}
+
+func (c Configs) Get(filetype, name string) (Config, error) {
+	if config, ok := c.User[name]; ok {
+		return config, nil
+	}
+	if filetypeConfigs := c.Defaults[filetype]; filetypeConfigs != nil {
+		if config, ok := filetypeConfigs[name]; ok {
+			return config, nil
+		}
+	}
+	return Config{}, fmt.Errorf("no configuration found for name: %s", name)
+}
+
+func (c Configs) Available(filetype string) []string {
+	var result []string
+	for name := range c.User {
+		result = append(result, name)
+	}
+	if filetypeConfigs := c.Defaults[filetype]; filetypeConfigs != nil {
+		for name := range filetypeConfigs {
+			result = append(result, name)
+		}
+	}
+	return result
+}
 
 type Config struct {
 	RunField ConfigRun `msgpack:"run"`
@@ -39,9 +71,10 @@ func (r ConfigRun) Run(eventHandlers []types.EventHandler) (*Conn, error) {
 func (r ConfigRun) runSubprocess(eventHandlers []types.EventHandler) (*Conn, error) {
 	cmd := exec.Command(r.Command[0], r.Command[1:]...)
 	conn := &Conn{
-		cmd:              cmd,
-		eventHandlers:    eventHandlers,
-		responseHandlers: make(map[int64]chan<- types.Response),
+		cmd:                  cmd,
+		eventHandlers:        eventHandlers,
+		responseHandlers:     make(map[int64]chan<- types.Response),
+		initializedEventSeen: make(chan struct{}),
 	}
 
 	if r.DialClientArg != "" {

@@ -1,9 +1,9 @@
 package nvim
 
 import (
-	"errors"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/dradtke/debug-console/dap"
 	"github.com/dradtke/debug-console/types"
@@ -14,9 +14,9 @@ import (
 
 func RegisterCommands(p *plugin.Plugin, d *dap.DAP) {
 	p.HandleCommand(&plugin.CommandOptions{
-		Name: "DebugRun",
-		NArgs: "+",
-		Eval: "*",
+		Name:  "DebugRun",
+		NArgs: "*",
+		Eval:  "*",
 	}, DebugRun(d))
 	p.HandleCommand(&plugin.CommandOptions{Name: "ToggleBreakpoint"}, ToggleBreakpoint(d))
 	p.HandleCommand(&plugin.CommandOptions{Name: "CurrentLocation"}, CurrentLocation(d))
@@ -33,16 +33,17 @@ func DebugRun(d *dap.DAP) any {
 		Path     string `eval:"expand('%:p')"`
 		Filetype string `eval:"getbufvar(bufnr('%'), '&filetype')"`
 	}) error {
-		log.Print("Starting debug run")
-		dapConfig, ok := d.ConfigMap[eval.Filetype]
-		if !ok {
-			return fmt.Errorf("No DAP configuration found for filetype: %s", eval.Filetype)
-		}
 		if len(args) == 0 {
-			return errors.New("No arguments specified; need at least a launch configuration name")
+			Notify(v, fmt.Sprintf("available configurations: %s", strings.Join(d.Configs.Available(eval.Filetype), ", ")), nvim.LogWarnLevel)
+			return nil
 		}
+		log.Print("Starting debug run")
 		launchConfigName := args[0]
 		launchConfigArgs := args[1:]
+		dapConfig, err := d.Configs.Get(eval.Filetype, launchConfigName)
+		if err != nil {
+			return fmt.Errorf("No DAP configuration found for filetype: %s", eval.Filetype)
+		}
 		launchConfigFunc, ok := dapConfig.LaunchArgFuncs[launchConfigName]
 		if !ok {
 			return fmt.Errorf("No launch config named '%s' found for filetype %s", args[0], eval.Filetype)
@@ -54,7 +55,8 @@ func DebugRun(d *dap.DAP) any {
 				log.Printf("Error starting debug adapter: %s", err)
 				return
 			}
-			log.Print("Go debug adapter initialized, launching")
+
+			log.Print("Getting launch arguments")
 
 			var launchArgs map[string]any
 			if err := v.ExecLua(launchConfigFunc, &launchArgs, eval.Path, launchConfigArgs); err != nil {
@@ -62,10 +64,14 @@ func DebugRun(d *dap.DAP) any {
 				return
 			}
 
+			log.Print("Sending launch request")
+
 			if _, err = p.SendRequest(types.NewLaunchRequest(launchArgs)); err != nil {
 				log.Printf("Error executing launch request: %s", err)
 				return
 			}
+
+			log.Print("Sending the configuration")
 
 			if err = SendConfiguration(v, p); err != nil {
 				log.Printf("Error sending configuration: %s", err)

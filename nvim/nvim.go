@@ -18,7 +18,7 @@ const (
 	SignNameBreakpoint  = "debug-console-breakpoint"
 
 	SignGroupCurrentLocation = "debug-console-current-location"
-	SignNameCurrentLocation = "debug-console-current-location"
+	SignNameCurrentLocation  = "debug-console-current-location"
 )
 
 var (
@@ -26,6 +26,9 @@ var (
 )
 
 func SendConfiguration(v *nvim.Nvim, p *dap.Conn) error {
+	log.Print("Waiting for the initialized event...")
+	<-p.InitializedEventSeen()
+
 	log.Print("Setting breakpoints")
 
 	allBreakpointSigns, err := GetAllSigns(v, SignGroupBreakpoint)
@@ -80,6 +83,7 @@ func SendConfiguration(v *nvim.Nvim, p *dap.Conn) error {
 		return fmt.Errorf("Error setting one or more breakpoints: %w", errs[0])
 	}
 
+	// TODO: verify that the "supportsConfigurationDoneRequest" capability is true
 	if _, err := p.ConfigurationDone(); err != nil {
 		return fmt.Errorf("Error finishing configuration: %w", err)
 	}

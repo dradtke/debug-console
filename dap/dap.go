@@ -19,7 +19,7 @@ type DAP struct {
 
 	// Exe is the executable, used for launching the console.
 	Exe                string
-	ConfigMap          ConfigMap
+	Configs            Configs
 	EditorEventHandler types.EventHandler
 	Conn               *Conn
 	Capabilities       *types.Capabilities
@@ -40,7 +40,7 @@ func (d *DAP) Run(config Config, onExit func()) (conn *Conn, err error) {
 	}
 	d.RUnlock()
 
-	log.Printf("Starting debug adapter...")
+	log.Println("Starting debug adapter...")
 
 	eventHandlers := []types.EventHandler{d.HandleEvent, d.EditorEventHandler}
 	if conn, err = config.RunField.Run(eventHandlers); err != nil {
@@ -73,11 +73,12 @@ func (d *DAP) Run(config Config, onExit func()) (conn *Conn, err error) {
 		onExit()
 	}()
 
-	log.Printf("Started debug adapter")
+	log.Println("Starting debug console...")
 	if err = d.StartConsole(); err != nil {
 		return conn, fmt.Errorf("Starting console: %w", err)
 	}
 
+	log.Println("Initializing adapter...")
 	resp, err := conn.Initialize()
 	if err != nil {
 		return conn, fmt.Errorf("Error initializing debug adapter: %w", err)
@@ -180,27 +181,6 @@ func (d *DAP) ClearProcess() {
 	d.Lock()
 	d.Conn = nil
 	d.Unlock()
-}
-
-func (d *DAP) HandleEvent(event types.Event) {
-	log.Printf("Received event: %s", event.Event)
-
-	switch event.Event {
-	case "initialized":
-		log.Print("Debug adapter initialized")
-
-	case "output":
-		var output types.OutputEvent
-		if err := json.Unmarshal(event.Body, &output); err != nil {
-			log.Printf("Error parsing output event: %s", err)
-		} else if err = d.ShowOutput(output); err != nil {
-			log.Printf("Error showing output: %s", err)
-		}
-
-	case "terminated":
-		log.Print("Debug adapter terminated")
-		d.Stop()
-	}
 }
 
 func (d *DAP) HandleStopped(stopped types.StoppedEvent) (*types.StackFrame, error) {

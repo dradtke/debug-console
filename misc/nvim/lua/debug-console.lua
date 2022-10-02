@@ -4,38 +4,47 @@ local mason_dir = vim.fn.stdpath('data')..'/mason'
 
 local default_config = {
 	go = {
-		run = {
-			type = 'subprocess',
-			command = {mason_dir..'/bin/go-debug-adapter'},
+		test = {
+			run = {
+				type = 'subprocess',
+				command = {mason_dir..'/bin/go-debug-adapter'},
+			},
+			launch = {
+				test = function(filepath, args)
+					return {
+						request = 'launch',
+						program = filepath,
+						dlvToolPath = vim.fn.exepath('dlv'),
+						mode = 'test',
+						args = args,
+					}
+				end,
+			},
 		},
-		launch = {
-			test = function(filepath, args)
-				return {
-					request = 'launch',
-					program = filepath,
-					dlvToolPath = vim.fn.exepath('dlv'),
-					mode = 'test',
-					args = args,
-				}
-			end,
-		}
 	},
 }
 
-function init(user_config)
-	vim.cmd 'runtime debug-console.vim'
-
-	config = default_config
-	for k,v in pairs(user_config) do
-		config[k] = v
-	end
+function stringify_launch_functions(config)
+	if config == nil then return end
 	for _,c in pairs(config) do
 		for k,v in pairs(c.launch) do
 			c.launch[k] = string.dump(v)
 		end
 	end
-	print(vim.inspect(config))
-	vim.fn.DebugConsoleSetConfig(config)
+end
+
+function init(user_config)
+	vim.cmd 'runtime debug-console.vim'
+
+	for _,config in pairs(default_config) do
+		stringify_launch_functions(config)
+	end
+	vim.fn.DebugConsoleSetDefaultConfig(default_config)
+
+	if next(user_config) then
+		stringify_launch_functions(user_config)
+		vim.fn.DebugConsoleSetUserConfig(default_config)
+	end
 end
 
 M.setup = function(plugin_path, config)

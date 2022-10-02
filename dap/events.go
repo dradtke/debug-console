@@ -7,23 +7,31 @@ import (
 	"github.com/dradtke/debug-console/types"
 )
 
-func (d *DAP) handleEvent(event types.Event) {
+func (d *DAP) HandleEvent(event types.Event) {
+	log.Printf("Received event: %s", event.Event)
+
 	switch event.Event {
 	case "initialized":
 		log.Print("Debug adapter initialized")
-
-	case "terminated":
-		log.Print("Debug adapter terminated.")
-		d.Stop()
+		d.Lock()
+		defer d.Unlock()
+		if d.Conn != nil {
+			d.Conn.seeInitializeEvent.Do(func() {
+				log.Println("Closing the channel")
+				close(d.Conn.initializedEventSeen)
+			})
+		}
 
 	case "output":
-		var body types.OutputEvent
-		if err := json.Unmarshal(event.Body, &body); err != nil {
-			log.Printf("Error parsing event output: %s", err)
-		} else {
-			if err := d.ShowOutput(body); err != nil {
-				log.Printf("Error showing event output: %s", err)
-			}
+		var output types.OutputEvent
+		if err := json.Unmarshal(event.Body, &output); err != nil {
+			log.Printf("Error parsing output event: %s", err)
+		} else if err = d.ShowOutput(output); err != nil {
+			log.Printf("Error showing output: %s", err)
 		}
+
+	case "terminated":
+		log.Print("Debug adapter terminated")
+		d.Stop()
 	}
 }
