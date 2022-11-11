@@ -111,7 +111,7 @@ func (c *Conn) HandleOut() {
 				log.Printf("dap stdout: error parsing response: %s", err)
 			}
 
-			log.Printf("Received response to: %s", resp.Command)
+			//log.Printf("Received response to: %s", resp.Command)
 
 			c.responseHandlersMu.Lock()
 			ch := c.responseHandlers[resp.RequestSeq]
@@ -127,7 +127,6 @@ func (c *Conn) HandleOut() {
 			if err := json.Unmarshal([]byte(body), &event); err != nil {
 				log.Printf("dap stdout: error parsing event: %s", err)
 			}
-			log.Printf("Event: %s", event.Type)
 			for _, f := range c.eventHandlers {
 				f(event)
 			}

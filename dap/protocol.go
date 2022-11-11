@@ -43,8 +43,7 @@ func ReadMessage(r io.Reader, scratch []byte, buf *bytes.Buffer) (map[string]str
 
 func ReadHeaders(r io.Reader, scratch []byte, buf *bytes.Buffer) (map[string]string, string, error) {
 	const sep = NL + NL
-	buf.Reset()
-	for {
+	for !strings.Contains(buf.String(), sep) {
 		n, err := r.Read(scratch)
 		if err != nil {
 			return nil, "", fmt.Errorf("ReadHeaders: error reading: %w", err)
@@ -52,19 +51,18 @@ func ReadHeaders(r io.Reader, scratch []byte, buf *bytes.Buffer) (map[string]str
 		if _, err = buf.Write(scratch[:n]); err != nil {
 			return nil, "", fmt.Errorf("ReadHeaders: error writing to buffer: %w", err)
 		}
-		s := buf.String()
-		if idx := strings.Index(s, sep); idx > -1 {
-			rawHeaders := s[:idx]
-			headers, err := ParseHeaders(rawHeaders)
-			if err != nil {
-				return nil, rawHeaders, fmt.Errorf("ReadHeaders: error parsing headers: %w", err)
-			}
-			rest := s[idx+len(sep):]
-			buf.Reset()
-			buf.WriteString(rest)
-			return headers, rawHeaders, nil
-		}
 	}
+	s := buf.String()
+	idx := strings.Index(s, sep)
+	rawHeaders := s[:idx]
+	headers, err := ParseHeaders(rawHeaders)
+	if err != nil {
+		return nil, rawHeaders, fmt.Errorf("ReadHeaders: error parsing headers: %w", err)
+	}
+	rest := s[idx+len(sep):]
+	buf.Reset()
+	buf.WriteString(rest)
+	return headers, rawHeaders, nil
 }
 
 func ParseHeaders(s string) (map[string]string, error) {

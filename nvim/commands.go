@@ -52,7 +52,9 @@ func DebugRun(d *dap.DAP) any {
 			defer util.LogPanic()
 			p, err := d.Run(dapConfig, OnDapExit(v))
 			if err != nil {
-				log.Printf("Error starting debug adapter: %s", err)
+				errmsg := fmt.Sprintf("Error starting debug adapter: %s", err)
+				Notify(v, errmsg, nvim.LogErrorLevel)
+				log.Print(errmsg)
 				return
 			}
 
