@@ -15,7 +15,7 @@ import (
 	"github.com/dradtke/debug-console/types"
 )
 
-const VerboseLogging = false
+const VerboseLogging = true
 
 type Conn struct {
 	cmd                  *exec.Cmd
@@ -40,6 +40,7 @@ func (c *Conn) Stop() {
 	if c.cmd == nil {
 		// ???: Is this enough to tell the connection to stop?
 		c.out.Close()
+		c.err.Close()
 		c.in.Close()
 	} else {
 		log.Print("Killing debug adapter")
@@ -188,4 +189,24 @@ func (c *Conn) SendMessage(msg any) error {
 
 func (c *Conn) InitializedEventSeen() <-chan struct{} {
 	return c.initializedEventSeen
+}
+
+func (c *Conn) pipeStreams() error {
+	// Connect to the process' standard streams
+	if stdout, err := c.cmd.StdoutPipe(); err != nil {
+		return err
+	} else {
+		c.out = stdout
+	}
+	if stderr, err := c.cmd.StderrPipe(); err != nil {
+		return err
+	} else {
+		c.err = stderr
+	}
+	if stdin, err := c.cmd.StdinPipe(); err != nil {
+		return err
+	} else {
+		c.in = stdin
+	}
+	return nil
 }

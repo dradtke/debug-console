@@ -7,29 +7,41 @@ local default_config = {
 		test = {
 			run = {
 				type = 'subprocess',
-				command = {mason_dir..'/bin/go-debug-adapter'},
+				command = {mason_dir..'/bin/dlv', 'dap'},
+				dialClientArg = '--client-addr',
 			},
-			launch = {
-				test = function(filepath, args)
-					return {
-						request = 'launch',
-						program = filepath,
-						dlvToolPath = vim.fn.exepath('dlv'),
-						mode = 'test',
-						args = args,
-					}
-				end,
-			},
-		},
+			launch = function(filepath, args)
+				-- See: https://pkg.go.dev/github.com/go-delve/delve/service/dap#LaunchConfig
+				return {
+					mode = 'test',
+					program = filepath,
+					-- args = args,
+					-- stopOnEntry = true,
+				}
+			end,
+		}
+		--test = {
+		--	run = {
+		--		type = 'subprocess',
+		--		command = {mason_dir..'/bin/go-debug-adapter'},
+		--	},
+		--	launch = function(filepath, args)
+		--		return {
+		--			request = 'launch',
+		--			program = filepath,
+		--			dlvToolPath = vim.fn.exepath('dlv'),
+		--			mode = 'test',
+		--			args = args,
+		--		}
+		--	end,
+		--},
 	},
 }
 
 function stringify_launch_functions(config)
 	if config == nil then return end
 	for _,c in pairs(config) do
-		for k,v in pairs(c.launch) do
-			c.launch[k] = string.dump(v)
-		end
+		c.launch = string.dump(c.launch)
 	end
 end
 

@@ -1,7 +1,10 @@
 package dap
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os/exec"
@@ -46,12 +49,12 @@ func (c Configs) Available(filetype string) []string {
 }
 
 type Config struct {
-	RunField ConfigRun `msgpack:"run"`
-	// TODO: ability to specify default launch configuration?
-	LaunchArgFuncs map[string]string `msgpack:"launch"`
+	Run    RunSpec `msgpack:"run"`
+	Launch string  `msgpack:"launch"`
 }
 
-type ConfigRun struct {
+// RunSpec defines how the DAP server should be started or connected to.
+type RunSpec struct {
 	Type    string   `msgpack:"type"`    // subprocess, lsp command (jdtls), etc.
 	Command []string `msgpack:"command"` // populated for subprocess
 
@@ -59,7 +62,7 @@ type ConfigRun struct {
 	DialClientArg string `msgpack:"dialClientArg"`
 }
 
-func (r ConfigRun) Run(eventHandlers []types.EventHandler) (*Conn, error) {
+func (r RunSpec) Run(eventHandlers []types.EventHandler) (*Conn, error) {
 	switch r.Type {
 	case "subprocess":
 		return r.runSubprocess(eventHandlers)
@@ -68,7 +71,7 @@ func (r ConfigRun) Run(eventHandlers []types.EventHandler) (*Conn, error) {
 	}
 }
 
-func (r ConfigRun) runSubprocess(eventHandlers []types.EventHandler) (*Conn, error) {
+func (r RunSpec) runSubprocess(eventHandlers []types.EventHandler) (*Conn, error) {
 	cmd := exec.Command(r.Command[0], r.Command[1:]...)
 	conn := &Conn{
 		cmd:                  cmd,
@@ -77,51 +80,79 @@ func (r ConfigRun) runSubprocess(eventHandlers []types.EventHandler) (*Conn, err
 		initializedEventSeen: make(chan struct{}),
 	}
 
-	if r.DialClientArg != "" {
-		// Listen for the server to connect to us
-		listener, err := net.Listen("tcp", "localhost:0")
-		if err != nil {
-			return nil, fmt.Errorf("Error creating listener: %w", err)
-		}
-		defer listener.Close()
-		cmd.Args = append(cmd.Args, r.DialClientArg, listener.Addr().String())
-		log.Printf("Starting command: %s", strings.Join(conn.cmd.Args, " "))
-		if err := conn.cmd.Start(); err != nil {
-			return nil, fmt.Errorf("Error spawning debug adapter process: error starting process: %w", err)
-		}
-		log.Println("Waiting for connection from delve")
-		c, err := listener.Accept()
-		log.Println("Accepted connection (presumably from delve)")
-		if err != nil {
-			cmd.Process.Kill()
-			return nil, fmt.Errorf("Error spawning debug adapter process: error accepting connection: %w", err)
-		}
-		conn.out = c
-		conn.in = c
-	} else {
-		// Connect to the process' standard streams
-		if stdout, err := cmd.StdoutPipe(); err != nil {
-			return nil, fmt.Errorf("Error spawning debug adapter subprocess: error getting stdout pipe: %w", err)
-		} else {
-			conn.out = stdout
-		}
-		if stderr, err := cmd.StderrPipe(); err != nil {
-			return nil, fmt.Errorf("Error spawning debug adapter subprocess: error getting stderr pipe: %w", err)
-		} else {
-			conn.err = stderr
-		}
-		if stdin, err := cmd.StdinPipe(); err != nil {
-			return nil, fmt.Errorf("Error spawning debug adapter subprocess: error getting stdin pipe: %w", err)
-		} else {
-			conn.in = stdin
-		}
-		log.Printf("Starting command: %s", strings.Join(conn.cmd.Args, " "))
-		if err := cmd.Start(); err != nil {
-			return nil, fmt.Errorf("Error spawning debug adapter subprocess: error starting process: %w", err)
-		}
+	if err := conn.pipeStreams(); err != nil {
+		return nil, err
 	}
 
-	go conn.HandleOut()
-	go conn.HandleErr()
+	if r.DialClientArg != "" {
+		go broadcastAsOutput("stdout", conn.out, eventHandlers)
+		go broadcastAsOutput("stderr", conn.err, eventHandlers)
+		if err := r.runConnectingSubprocess(conn); err != nil {
+			return nil, err
+		}
+	} else {
+		log.Printf("Starting debug adapter with command: %s", strings.Join(conn.cmd.Args, " "))
+		if err := conn.cmd.Start(); err != nil {
+			return nil, err
+		}
+		go conn.HandleOut()
+		go conn.HandleErr()
+	}
+
 	return conn, nil
+}
+
+func (r RunSpec) runConnectingSubprocess(conn *Conn) error {
+	// Listen for the server to connect to us
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		return fmt.Errorf("Error creating listener: %w", err)
+	}
+	conn.cmd.Args = append(conn.cmd.Args, r.DialClientArg, listener.Addr().String())
+	log.Printf("Starting debug adapter with command: %s", strings.Join(conn.cmd.Args, " "))
+	if err := conn.cmd.Start(); err != nil {
+		return err
+	}
+
+	conn.inMu.Lock()
+
+	go func() {
+		defer listener.Close()
+		defer conn.inMu.Unlock()
+		log.Print("Waiting for connection from subprocess")
+		c, err := listener.Accept()
+		if err != nil {
+			log.Printf("Error waiting for connection: %s", err)
+			conn.cmd.Process.Kill()
+		} else {
+			log.Print("Got connection from subprocess")
+			conn.out = c
+			conn.in = c
+			go conn.HandleOut()
+			go conn.HandleErr()
+		}
+	}()
+	return nil
+}
+
+func broadcastAsOutput(category string, r io.Reader, eventHandlers []types.EventHandler) {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := scanner.Text()
+		body, err := json.Marshal(types.OutputEvent{
+			Category: category,
+			Output: line + "\n",
+		})
+		if err != nil {
+			log.Println("broadcastAsOutput: Error marshaling output event: " + err.Error())
+			return
+		}
+		event := types.Event{
+			Event: "output",
+			Body: json.RawMessage(body),
+		}
+		for _, eventHandler := range eventHandlers {
+			eventHandler(event)
+		}
+	}
 }

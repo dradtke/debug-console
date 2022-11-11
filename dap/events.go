@@ -17,8 +17,11 @@ func (d *DAP) HandleEvent(event types.Event) {
 		defer d.Unlock()
 		if d.Conn != nil {
 			d.Conn.seeInitializeEvent.Do(func() {
+				log.Print("Closing the 'initialized event seen' channel!")
 				close(d.Conn.initializedEventSeen)
 			})
+		} else {
+			log.Print("Can't close the 'initialized event seen' channel, no connection")
 		}
 
 	case "output":

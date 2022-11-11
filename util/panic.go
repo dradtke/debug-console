@@ -1,9 +1,13 @@
 package util
 
-import "log"
+import (
+	"log"
+	"runtime/debug"
+)
 
 func LogPanic() {
 	if r := recover(); r != nil {
-		log.Printf("panic: %v", r)
+		log.Printf("recovered panic: %v", r)
+		log.Print(string(debug.Stack()))
 	}
 }

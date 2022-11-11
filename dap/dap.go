@@ -43,14 +43,16 @@ func (d *DAP) Run(config Config, onExit func()) (conn *Conn, err error) {
 	log.Println("Starting debug adapter...")
 
 	eventHandlers := []types.EventHandler{d.HandleEvent, d.EditorEventHandler}
-	if conn, err = config.RunField.Run(eventHandlers); err != nil {
-		log.Printf("Failed to start debug adapter process: %s", err)
+	if conn, err = config.Run.Run(eventHandlers); err != nil {
+		return nil, fmt.Errorf("Failed to start debug adapter process: %w", err)
 	}
 
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("Panic: %s", r)
-			conn.Stop()
+			if conn != nil {
+				conn.Stop()
+			}
 		} else if err != nil && conn != nil {
 			log.Print("Stopping existing connection")
 			conn.Stop()
@@ -58,11 +60,12 @@ func (d *DAP) Run(config Config, onExit func()) (conn *Conn, err error) {
 	}()
 
 	d.Lock()
+	log.Print("Setting d.Conn")
 	d.Conn = conn
 	d.Unlock()
 
 	go func() {
-		defer util.LogPanic()
+		//defer util.LogPanic()
 		if err := conn.Wait(); err != nil {
 			// ???: Suppress this message if the adapter was killed by Neovim exiting?
 			log.Printf("Debug adapter exited with error: %s", err)

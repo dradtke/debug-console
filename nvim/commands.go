@@ -44,10 +44,6 @@ func DebugRun(d *dap.DAP) any {
 		if err != nil {
 			return fmt.Errorf("No DAP configuration found for filetype: %s", eval.Filetype)
 		}
-		launchConfigFunc, ok := dapConfig.LaunchArgFuncs[launchConfigName]
-		if !ok {
-			return fmt.Errorf("No launch config named '%s' found for filetype %s", args[0], eval.Filetype)
-		}
 		go func() {
 			defer util.LogPanic()
 			p, err := d.Run(dapConfig, OnDapExit(v))
@@ -61,7 +57,7 @@ func DebugRun(d *dap.DAP) any {
 			log.Print("Getting launch arguments")
 
 			var launchArgs map[string]any
-			if err := v.ExecLua(launchConfigFunc, &launchArgs, eval.Path, launchConfigArgs); err != nil {
+			if err := v.ExecLua(dapConfig.Launch, &launchArgs, eval.Path, launchConfigArgs); err != nil {
 				log.Printf("Error getting launch arguments: %s", err)
 				return
 			}
