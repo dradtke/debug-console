@@ -60,7 +60,6 @@ func (d *DAP) Run(config Config, onExit func()) (conn *Conn, err error) {
 	}()
 
 	d.Lock()
-	log.Print("Setting d.Conn")
 	d.Conn = conn
 	d.Unlock()
 

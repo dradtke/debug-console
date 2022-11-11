@@ -7,34 +7,18 @@ local default_config = {
 		test = {
 			run = {
 				type = 'subprocess',
-				command = {mason_dir..'/bin/dlv', 'dap'},
-				dialClientArg = '--client-addr',
+				command = {mason_dir..'/bin/dlv', 'dap', '--client-addr', '${CLIENT_ADDR}'},
+				dialClient = true,
 			},
 			launch = function(filepath, args)
 				-- See: https://pkg.go.dev/github.com/go-delve/delve/service/dap#LaunchConfig
-				return {
+				vim.fn.DebugConsoleLaunch({
 					mode = 'test',
 					program = filepath,
-					-- args = args,
-					-- stopOnEntry = true,
-				}
+					args = args,
+				})
 			end,
-		}
-		--test = {
-		--	run = {
-		--		type = 'subprocess',
-		--		command = {mason_dir..'/bin/go-debug-adapter'},
-		--	},
-		--	launch = function(filepath, args)
-		--		return {
-		--			request = 'launch',
-		--			program = filepath,
-		--			dlvToolPath = vim.fn.exepath('dlv'),
-		--			mode = 'test',
-		--			args = args,
-		--		}
-		--	end,
-		--},
+		},
 	},
 }
 

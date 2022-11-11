@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/dradtke/debug-console/dap"
-	"github.com/dradtke/debug-console/types"
 	"github.com/dradtke/debug-console/util"
 	"github.com/neovim/go-client/nvim"
 	"github.com/neovim/go-client/nvim/plugin"
@@ -46,7 +45,7 @@ func DebugRun(d *dap.DAP) any {
 		}
 		go func() {
 			defer util.LogPanic()
-			p, err := d.Run(dapConfig, OnDapExit(v))
+			_, err := d.Run(dapConfig, OnDapExit(v))
 			if err != nil {
 				errmsg := fmt.Sprintf("Error starting debug adapter: %s", err)
 				Notify(v, errmsg, nvim.LogErrorLevel)
@@ -54,26 +53,10 @@ func DebugRun(d *dap.DAP) any {
 				return
 			}
 
-			log.Print("Getting launch arguments")
+			log.Print("Starting pre-launch")
 
-			var launchArgs map[string]any
-			if err := v.ExecLua(dapConfig.Launch, &launchArgs, eval.Path, launchConfigArgs); err != nil {
+			if err := v.ExecLua(dapConfig.Launch, nil, eval.Path, launchConfigArgs); err != nil {
 				log.Printf("Error getting launch arguments: %s", err)
-				return
-			}
-
-			log.Print("Sending launch request")
-
-			if _, err = p.SendRequest(types.NewLaunchRequest(launchArgs)); err != nil {
-				log.Printf("Error executing launch request: %s", err)
-				return
-			}
-
-			log.Print("Sending the configuration")
-
-			if err = SendConfiguration(v, p); err != nil {
-				log.Printf("Error sending configuration: %s", err)
-				return
 			}
 		}()
 		return nil

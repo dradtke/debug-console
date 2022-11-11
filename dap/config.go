@@ -57,9 +57,10 @@ type Config struct {
 type RunSpec struct {
 	Type    string   `msgpack:"type"`    // subprocess, lsp command (jdtls), etc.
 	Command []string `msgpack:"command"` // populated for subprocess
-
-	// Used for 'dlv dap' and anything that behaves similarly.
-	DialClientArg string `msgpack:"dialClientArg"`
+	// DialClient tells the client to open a listener for the server to connect
+	// to. The server's command should include the value "${CLIENT_ADDR}",
+	// which will be replaced with the client's address.
+	DialClient bool `msgpack:"dialClient"`
 }
 
 func (r RunSpec) Run(eventHandlers []types.EventHandler) (*Conn, error) {
@@ -84,7 +85,7 @@ func (r RunSpec) runSubprocess(eventHandlers []types.EventHandler) (*Conn, error
 		return nil, err
 	}
 
-	if r.DialClientArg != "" {
+	if r.DialClient {
 		go broadcastAsOutput("stdout", conn.out, eventHandlers)
 		go broadcastAsOutput("stderr", conn.err, eventHandlers)
 		if err := r.runConnectingSubprocess(conn); err != nil {
@@ -108,7 +109,9 @@ func (r RunSpec) runConnectingSubprocess(conn *Conn) error {
 	if err != nil {
 		return fmt.Errorf("Error creating listener: %w", err)
 	}
-	conn.cmd.Args = append(conn.cmd.Args, r.DialClientArg, listener.Addr().String())
+	for i := range conn.cmd.Args {
+		conn.cmd.Args[i] = strings.Replace(conn.cmd.Args[i], "${CLIENT_ADDR}", listener.Addr().String(), -1)
+	}
 	log.Printf("Starting debug adapter with command: %s", strings.Join(conn.cmd.Args, " "))
 	if err := conn.cmd.Start(); err != nil {
 		return err
