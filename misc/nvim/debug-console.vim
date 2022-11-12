@@ -34,6 +34,5 @@ call remote#host#RegisterPlugin('debug-console', '0', [
 \ {'type': 'command', 'name': 'DebugRun', 'sync': 1, 'opts': {'eval': '{''Path'': expand(''%:p''), ''Filetype'': getbufvar(bufnr(''%''), ''&filetype'')}', 'nargs': '*'}},
 \ {'type': 'command', 'name': 'ToggleBreakpoint', 'sync': 1, 'opts': {}},
 \ {'type': 'function', 'name': 'DebugConsoleLaunch', 'sync': 1, 'opts': {}},
-\ {'type': 'function', 'name': 'DebugConsoleSetDefaultConfig', 'sync': 1, 'opts': {}},
-\ {'type': 'function', 'name': 'DebugConsoleSetUserConfig', 'sync': 1, 'opts': {}},
+\ {'type': 'function', 'name': 'DebugConsoleRun', 'sync': 1, 'opts': {}},
 \ ])

@@ -13,57 +13,14 @@ import (
 	"github.com/dradtke/debug-console/types"
 )
 
-type ConfigMap map[string]Config
-
-type Configs struct {
-	// default by filetype + name
-	Defaults map[string]ConfigMap `msgpack:"defaults"`
-
-	// user configs by name
-	User ConfigMap `msgpack:"user"`
+type RunArgs struct {
+	Type string `msgpack:"type"`
+	// Command is expected when Type is 'subprocess'
+	Command    []string `msgpack:"command"`
+	DialClient bool     `msgpack:"dialClient"`
 }
 
-func (c Configs) Get(filetype, name string) (Config, error) {
-	if config, ok := c.User[name]; ok {
-		return config, nil
-	}
-	if filetypeConfigs := c.Defaults[filetype]; filetypeConfigs != nil {
-		if config, ok := filetypeConfigs[name]; ok {
-			return config, nil
-		}
-	}
-	return Config{}, fmt.Errorf("no configuration found for name: %s", name)
-}
-
-func (c Configs) Available(filetype string) []string {
-	var result []string
-	for name := range c.User {
-		result = append(result, name)
-	}
-	if filetypeConfigs := c.Defaults[filetype]; filetypeConfigs != nil {
-		for name := range filetypeConfigs {
-			result = append(result, name)
-		}
-	}
-	return result
-}
-
-type Config struct {
-	Run    RunSpec `msgpack:"run"`
-	Launch string  `msgpack:"launch"`
-}
-
-// RunSpec defines how the DAP server should be started or connected to.
-type RunSpec struct {
-	Type    string   `msgpack:"type"`    // subprocess, lsp command (jdtls), etc.
-	Command []string `msgpack:"command"` // populated for subprocess
-	// DialClient tells the client to open a listener for the server to connect
-	// to. The server's command should include the value "${CLIENT_ADDR}",
-	// which will be replaced with the client's address.
-	DialClient bool `msgpack:"dialClient"`
-}
-
-func (r RunSpec) Run(eventHandlers []types.EventHandler) (*Conn, error) {
+func (r RunArgs) Run(eventHandlers []types.EventHandler) (*Conn, error) {
 	switch r.Type {
 	case "subprocess":
 		return r.runSubprocess(eventHandlers)
@@ -72,7 +29,7 @@ func (r RunSpec) Run(eventHandlers []types.EventHandler) (*Conn, error) {
 	}
 }
 
-func (r RunSpec) runSubprocess(eventHandlers []types.EventHandler) (*Conn, error) {
+func (r RunArgs) runSubprocess(eventHandlers []types.EventHandler) (*Conn, error) {
 	cmd := exec.Command(r.Command[0], r.Command[1:]...)
 	conn := &Conn{
 		cmd:                  cmd,
@@ -103,7 +60,7 @@ func (r RunSpec) runSubprocess(eventHandlers []types.EventHandler) (*Conn, error
 	return conn, nil
 }
 
-func (r RunSpec) runConnectingSubprocess(conn *Conn) error {
+func (r RunArgs) runConnectingSubprocess(conn *Conn) error {
 	// Listen for the server to connect to us
 	listener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
@@ -144,7 +101,7 @@ func broadcastAsOutput(category string, r io.Reader, eventHandlers []types.Event
 		line := scanner.Text()
 		body, err := json.Marshal(types.OutputEvent{
 			Category: category,
-			Output: line + "\n",
+			Output:   line + "\n",
 		})
 		if err != nil {
 			log.Println("broadcastAsOutput: Error marshaling output event: " + err.Error())
@@ -152,7 +109,7 @@ func broadcastAsOutput(category string, r io.Reader, eventHandlers []types.Event
 		}
 		event := types.Event{
 			Event: "output",
-			Body: json.RawMessage(body),
+			Body:  json.RawMessage(body),
 		}
 		for _, eventHandler := range eventHandlers {
 			eventHandler(event)

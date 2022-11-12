@@ -12,33 +12,24 @@ import (
 )
 
 func RegisterFunctions(p *plugin.Plugin, d *dap.DAP) {
-	p.HandleFunction(&plugin.FunctionOptions{Name: "DebugConsoleSetDefaultConfig"}, SetDefaultConfig(d))
-	p.HandleFunction(&plugin.FunctionOptions{Name: "DebugConsoleSetUserConfig"}, SetUserConfig(d))
 	// TODO: define a function that can be used to cancel a run + launch
+	p.HandleFunction(&plugin.FunctionOptions{Name: "DebugConsoleRun"}, Run(d))
 	p.HandleFunction(&plugin.FunctionOptions{Name: "DebugConsoleLaunch"}, Launch(d))
 }
 
-func SetDefaultConfig(d *dap.DAP) any {
-	return func(v *nvim.Nvim, args []map[string]dap.ConfigMap) error {
+func Run(d *dap.DAP) any {
+	return func(v *nvim.Nvim, args []dap.RunArgs) error {
 		if len(args) != 1 {
 			return errors.New("expected exactly one argument")
 		}
-		d.Lock()
-		defer d.Unlock()
-		d.Configs.Defaults = args[0]
-		return nil
-	}
-}
-
-func SetUserConfig(d *dap.DAP) any {
-	return func(v *nvim.Nvim, args []dap.ConfigMap) error {
-		if len(args) != 1 {
-			return errors.New("expected exactly one argument")
+		log.Print("Entered DebugConsoleRun()")
+		if _, err := d.Run(args[0], OnDapExit(v)); err != nil {
+			return err
 		}
-		d.Lock()
-		defer d.Unlock()
-		d.Configs.User = args[0]
-		return nil
+		d.RLock()
+		launchArgs := d.LaunchArgs
+		d.RUnlock()
+		return v.ExecLua(launchArgs.LaunchFunc + "(...)", nil, launchArgs.Filepath, launchArgs.UserArgs)
 	}
 }
 

@@ -3,7 +3,6 @@ package nvim
 import (
 	"fmt"
 	"log"
-	"strings"
 
 	"github.com/dradtke/debug-console/dap"
 	"github.com/dradtke/debug-console/util"
@@ -32,32 +31,20 @@ func DebugRun(d *dap.DAP) any {
 		Path     string `eval:"expand('%:p')"`
 		Filetype string `eval:"getbufvar(bufnr('%'), '&filetype')"`
 	}) error {
+		defer util.Recover()
 		if len(args) == 0 {
-			Notify(v, fmt.Sprintf("available configurations: %s", strings.Join(d.Configs.Available(eval.Filetype), ", ")), nvim.LogWarnLevel)
+			// Notify(v, fmt.Sprintf("available configurations for filetype '%s': %s", eval.Filetype, strings.Join(d.Configs.Available(eval.Filetype), ", ")), nvim.LogWarnLevel)
+			Notify(v, "No debug configuration specified", nvim.LogWarnLevel)
 			return nil
 		}
 		log.Print("Starting debug run")
-		launchConfigName := args[0]
-		launchConfigArgs := args[1:]
-		dapConfig, err := d.Configs.Get(eval.Filetype, launchConfigName)
-		if err != nil {
-			return fmt.Errorf("No DAP configuration found for filetype: %s", eval.Filetype)
-		}
-		go func() {
-			defer util.Recover()
-			_, err := d.Run(dapConfig, OnDapExit(v))
-			if err != nil {
-				errmsg := fmt.Sprintf("Error starting debug adapter: %s", err)
-				Notify(v, errmsg, nvim.LogErrorLevel)
-				log.Print(errmsg)
-				return
-			}
-
-			if err := v.ExecLua(dapConfig.Launch, nil, eval.Path, launchConfigArgs); err != nil {
-				log.Printf("Error initiating launch sequence: %s", err)
-			}
-		}()
-		return nil
+		luaRequire := fmt.Sprintf("require('debug-console.%s.%s')", eval.Filetype, args[0])
+		d.Lock()
+		d.LaunchArgs.Filepath = eval.Path
+		d.LaunchArgs.UserArgs = args[1:]
+		d.LaunchArgs.LaunchFunc = luaRequire + ".launch"
+		d.Unlock()
+		return v.ExecLua(luaRequire + ".run()", nil)
 	}
 }
 

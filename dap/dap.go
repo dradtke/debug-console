@@ -18,8 +18,12 @@ type DAP struct {
 	sync.RWMutex
 
 	// Exe is the executable, used for launching the console.
-	Exe                string
-	Configs            Configs
+	Exe        string
+	LaunchArgs struct {
+		Filepath   string
+		UserArgs   []string
+		LaunchFunc string
+	}
 	EditorEventHandler types.EventHandler
 	Conn               *Conn
 	Capabilities       *types.Capabilities
@@ -32,18 +36,19 @@ type DAP struct {
 
 type DapCommandFunc func(string) ([]string, error)
 
-func (d *DAP) Run(config Config, onExit func()) (conn *Conn, err error) {
+// Run starts and initializes the debug adapter.
+func (d *DAP) Run(args RunArgs, onExit func()) (conn *Conn, err error) {
 	d.RLock()
-	if d.Conn != nil {
-		defer d.RUnlock()
+	alreadyRunning := d.Conn != nil
+	d.RUnlock()
+	if alreadyRunning {
 		return nil, errors.New("A debug adapter is already running")
 	}
-	d.RUnlock()
 
 	log.Println("Starting debug adapter...")
 
 	eventHandlers := []types.EventHandler{d.HandleEvent, d.EditorEventHandler}
-	if conn, err = config.Run.Run(eventHandlers); err != nil {
+	if conn, err = args.Run(eventHandlers); err != nil {
 		return nil, fmt.Errorf("Failed to start debug adapter process: %w", err)
 	}
 

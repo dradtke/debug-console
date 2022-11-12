@@ -1,46 +1,7 @@
 local M = {}
 
-local mason_dir = vim.fn.stdpath('data')..'/mason'
-
-local default_config = {
-	go = {
-		test = {
-			run = {
-				type = 'subprocess',
-				command = {mason_dir..'/bin/dlv', 'dap', '--client-addr', '${CLIENT_ADDR}'},
-				dialClient = true,
-			},
-			launch = function(filepath, args)
-				-- See: https://pkg.go.dev/github.com/go-delve/delve/service/dap#LaunchConfig
-				vim.fn.DebugConsoleLaunch({
-					mode = 'test',
-					program = filepath,
-					args = args,
-				})
-			end,
-		},
-	},
-}
-
-function stringify_launch_functions(config)
-	if config == nil then return end
-	for _,c in pairs(config) do
-		c.launch = string.dump(c.launch)
-	end
-end
-
 function init(user_config)
 	vim.cmd 'runtime debug-console.vim'
-
-	for _,config in pairs(default_config) do
-		stringify_launch_functions(config)
-	end
-	vim.fn.DebugConsoleSetDefaultConfig(default_config)
-
-	if next(user_config) then
-		stringify_launch_functions(user_config)
-		vim.fn.DebugConsoleSetUserConfig(default_config)
-	end
 end
 
 M.setup = function(plugin_path, config)
