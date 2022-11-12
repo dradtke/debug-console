@@ -59,7 +59,7 @@ func runConsole(args []string) error {
 	s := rpc.NewServer()
 	s.Register(console)
 	go func() {
-		defer util.LogPanic()
+		defer util.Recover()
 		s.Accept(consoleListener)
 	}()
 

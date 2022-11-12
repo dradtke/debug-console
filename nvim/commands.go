@@ -44,7 +44,7 @@ func DebugRun(d *dap.DAP) any {
 			return fmt.Errorf("No DAP configuration found for filetype: %s", eval.Filetype)
 		}
 		go func() {
-			defer util.LogPanic()
+			defer util.Recover()
 			_, err := d.Run(dapConfig, OnDapExit(v))
 			if err != nil {
 				errmsg := fmt.Sprintf("Error starting debug adapter: %s", err)
@@ -53,10 +53,8 @@ func DebugRun(d *dap.DAP) any {
 				return
 			}
 
-			log.Print("Starting pre-launch")
-
 			if err := v.ExecLua(dapConfig.Launch, nil, eval.Path, launchConfigArgs); err != nil {
-				log.Printf("Error getting launch arguments: %s", err)
+				log.Printf("Error initiating launch sequence: %s", err)
 			}
 		}()
 		return nil

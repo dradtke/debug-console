@@ -51,7 +51,7 @@ func NewOutputBroadcaster() (*OutputBroadcaster, error) {
 	}
 	b := &OutputBroadcaster{l: l, conns: make([]connWithEncoder, 0, 1), firstConnSeenCh: make(chan struct{})}
 	go func() {
-		defer util.LogPanic()
+		defer util.Recover()
 		b.listen()
 	}()
 	return b, nil

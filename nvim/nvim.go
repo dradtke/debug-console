@@ -52,7 +52,7 @@ func SendConfiguration(v *nvim.Nvim, p *dap.Conn) error {
 
 	for buffer, breakpointSigns := range allBreakpointSigns {
 		go func(buffer nvim.Buffer, breakpointSigns []SignInfo) {
-			defer util.LogPanic()
+			defer util.Recover()
 			bufferPath, err := BufferPath(v, buffer)
 			if err != nil {
 				addErr(fmt.Errorf("SendConfiguration: %w", err))

@@ -49,7 +49,7 @@ func (d *DAP) Run(config Config, onExit func()) (conn *Conn, err error) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("Panic: %s", r)
+			util.LogPanic(r)
 			if conn != nil {
 				conn.Stop()
 			}
@@ -145,7 +145,7 @@ func (d *DAP) StartConsole() error {
 	dapServer := rpc.NewServer()
 	dapServer.Register(DAPService{d})
 	go func() {
-		defer util.LogPanic()
+		defer util.Recover()
 		dapServer.Accept(dapListener)
 	}()
 

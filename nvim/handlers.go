@@ -21,7 +21,7 @@ func HandleEvent(v *nvim.Nvim, d *dap.DAP) types.EventHandler {
 				log.Printf("Error parsing body: %s", err)
 			}
 			go func() {
-				defer util.LogPanic()
+				defer util.Recover()
 				stackFrame, err := d.HandleStopped(stopped)
 				if err != nil {
 					log.Printf("Error handling stop: %s", err)

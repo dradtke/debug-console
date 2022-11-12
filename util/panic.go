@@ -5,9 +5,13 @@ import (
 	"runtime/debug"
 )
 
-func LogPanic() {
+func Recover() {
 	if r := recover(); r != nil {
-		log.Printf("recovered panic: %v", r)
-		log.Print(string(debug.Stack()))
+		LogPanic(r)
 	}
+}
+
+func LogPanic(v any) {
+	log.Printf("panic: %v", v)
+	log.Print(string(debug.Stack()))
 }

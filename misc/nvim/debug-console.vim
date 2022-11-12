@@ -12,11 +12,11 @@ let s:dir = expand('<sfile>:h:h:h')
 function! s:Start(host) abort
 	let l:bin = s:dir.'/bin/debug-console'
 	" echomsg 'debug-console bin: '.l:bin
-	let l:cache = stdpath('cache')
+	let l:state = stdpath('state')
 	return jobstart([l:bin, 'nvim'], {
 				\ 'rpc': v:true,
 				\ 'env': {
-					\ 'LOG_FILE': l:cache.'/debug-console.log',
+					\ 'LOG_FILE': l:state.'/debug-console.log',
 					\ },
 				\ })
 endfunction
