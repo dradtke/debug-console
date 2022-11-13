@@ -1,13 +1,9 @@
 package types
 
-import "sync/atomic"
-
 type Request interface {
 	Seq() int64
 	Command() string
 }
-
-var seq int64
 
 type request struct {
 	SeqField     int64  `json:"seq"`
@@ -25,7 +21,7 @@ func (r request) Command() string {
 
 func newRequest(command string) request {
 	return request{
-		SeqField:     atomic.AddInt64(&seq, 1),
+		SeqField:     NextSeq(),
 		Type:         "request",
 		CommandField: command,
 	}

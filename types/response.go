@@ -7,12 +7,12 @@ import (
 )
 
 type Response struct {
-	Seq        int64           `json:"seq"`
+	Seq        int64           `json:"seq,omitempty"`
 	Type       string          `json:"type"`
 	RequestSeq int64           `json:"request_seq"`
 	Command    string          `json:"command"`
 	Success    bool            `json:"success"`
-	Body       json.RawMessage `json:"body"`
+	Body       json.RawMessage `json:"body,omitempty"`
 }
 
 type ErrorResponse struct {
@@ -43,4 +43,23 @@ type ThreadsResponse struct {
 
 type CompletionsResponse struct {
 	Targets []CompletionItem `json:"targets"`
+}
+
+type RunInTerminalResponse struct {
+	ProcessID      int `json:"processId,omitempty"`
+	ShellProcessID int `json:"shellProcessId,omitempty"`
+}
+
+func NewResponse(requestSeq int64, command string, success bool, body any) Response {
+	b, err := json.Marshal(body)
+	if err != nil {
+		panic("types.NewResponse: failed to marshal body: " + err.Error())
+	}
+	return Response{
+		Type:       "response",
+		RequestSeq: requestSeq,
+		Command:    command,
+		Success:    success,
+		Body:       json.RawMessage(b),
+	}
 }

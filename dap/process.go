@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -42,9 +41,15 @@ func (c *Conn) Wait() error {
 func (c *Conn) Stop() {
 	if c.cmd == nil {
 		// ???: Is this enough to tell the connection to stop?
-		c.out.Close()
-		c.err.Close()
-		c.in.Close()
+		if c.out != nil {
+			c.out.Close()
+		}
+		if c.err != nil {
+			c.err.Close()
+		}
+		if c.in != nil {
+			c.in.Close()
+		}
 	} else {
 		log.Print("Killing debug adapter")
 		if err := c.cmd.Process.Kill(); err != nil {
@@ -79,12 +84,8 @@ func (c *Conn) HandleOut() {
 	for {
 		_ /*headers*/, rawHeaders, body, err := ReadMessage(c.out, scratch, &buf)
 		if err != nil {
-			if errors.Is(err, io.EOF) {
-				log.Print("dap exiting")
-				return
-			}
-			log.Printf("dap stdout: error reading message: %s", err)
-			continue
+			log.Printf("dap stdout: %s", err)
+			return
 		}
 
 		/*
@@ -171,6 +172,18 @@ func (c *Conn) HandleReverseRequest(req types.ReverseRequest) {
 		}
 		if err = tmux.RunInPane(pane, args...); err != nil {
 			log.Printf("Failed to run in run-in-terminal tmux pane: %s", err)
+			return
+		}
+		shellPID, err := tmux.PanePID(pane)
+		if err != nil {
+			log.Printf("Failed to get PID of pane: %s", err)
+			return
+		}
+
+		if err := c.SendMessage(types.NewResponse(req.Seq, req.Command, true, types.RunInTerminalResponse{
+			ShellProcessID: shellPID,
+		})); err != nil {
+			log.Printf("Failed to send runInTerminal response: %s", err)
 		}
 
 	default:

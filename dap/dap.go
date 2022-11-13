@@ -99,6 +99,7 @@ func (d *DAP) Run(args RunArgs, onExit func()) (conn *Conn, err error) {
 }
 
 func (d *DAP) Stop() {
+	defer util.Recover()
 	d.Lock()
 	defer d.Unlock()
 
@@ -109,6 +110,7 @@ func (d *DAP) Stop() {
 
 	d.OutputBroadcaster.Stop()
 
+	log.Println("Stopping console")
 	if err := d.ConsoleClient.Call("ConsoleService.Stop", struct{}{}, nil); err != nil {
 		log.Printf("Error stopping console: %s", err)
 	}

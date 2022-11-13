@@ -94,6 +94,18 @@ func RunInPane(pane string, args ...string) error {
 	return exec.Command("tmux", tmuxArgs...).Run()
 }
 
+func PanePID(id string) (int, error) {
+	v, err := exec.Command("tmux", "list-panes", "-f", fmt.Sprintf("#{==:#{pane_id},%s}", id), "-F", "#{pane_pid}").Output()
+	if err != nil {
+		return 0, err
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(string(v)))
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
 func runAll(cmds [][]string) error {
 	for _, cmd := range cmds {
 		if err := exec.Command(cmd[0], cmd[1:]...).Run(); err != nil {
