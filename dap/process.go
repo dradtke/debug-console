@@ -12,7 +12,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/dradtke/debug-console/tmux"
 	"github.com/dradtke/debug-console/types"
+	"github.com/dradtke/debug-console/util"
 )
 
 const VerboseLogging = true
@@ -20,6 +22,7 @@ const VerboseLogging = true
 type Conn struct {
 	cmd                  *exec.Cmd
 	out, err             io.ReadCloser
+	outDone              chan struct{}
 	in                   io.WriteCloser
 	inMu                 sync.Mutex
 	eventHandlers        []types.EventHandler
@@ -61,6 +64,10 @@ func (c *Conn) HandleErr() {
 }
 
 func (c *Conn) HandleOut() {
+	defer func() {
+		log.Println("Done reading stdout")
+		close(c.outDone)
+	}()
 	if c.out == nil {
 		log.Printf("No output stream to read!")
 		return
@@ -110,35 +117,65 @@ func (c *Conn) HandleOut() {
 			var resp types.Response
 			if err := json.Unmarshal([]byte(body), &resp); err != nil {
 				log.Printf("dap stdout: error parsing response: %s", err)
-			}
+			} else {
+				c.responseHandlersMu.Lock()
+				ch := c.responseHandlers[resp.RequestSeq]
+				delete(c.responseHandlers, resp.RequestSeq)
+				c.responseHandlersMu.Unlock()
 
-			//log.Printf("Received response to: %s", resp.Command)
-
-			c.responseHandlersMu.Lock()
-			ch := c.responseHandlers[resp.RequestSeq]
-			delete(c.responseHandlers, resp.RequestSeq)
-			c.responseHandlersMu.Unlock()
-
-			if ch != nil {
-				ch <- resp
+				if ch != nil {
+					ch <- resp
+				}
 			}
 
 		case "event":
 			var event types.Event
 			if err := json.Unmarshal([]byte(body), &event); err != nil {
 				log.Printf("dap stdout: error parsing event: %s", err)
-			}
-			for _, f := range c.eventHandlers {
-				f(event)
+			} else {
+				for _, f := range c.eventHandlers {
+					f(event)
+				}
 			}
 
 		case "request":
-			// TODO: handle reverse request
-			log.Print("received reverse request (TODO: handle)")
+			var req types.ReverseRequest
+			if err := json.Unmarshal([]byte(body), &req); err != nil {
+				log.Printf("dap stdout: error parsing reverse request: %s", err)
+			} else {
+				go c.HandleReverseRequest(req)
+			}
 
 		default:
 			log.Printf("unrecognized incoming message type: %s", parsed.Type)
 		}
+	}
+}
+
+func (c *Conn) HandleReverseRequest(req types.ReverseRequest) {
+	defer util.Recover()
+
+	switch req.Command {
+	case "runInTerminal":
+		pane, err := tmux.FindOrSplitRunInTerminal()
+		if err != nil {
+			log.Printf("Failed to find or split run-in-terminal tmux pane: %s", err)
+			return
+		}
+		if cwd := req.Arguments["cwd"]; cwd != nil {
+			// TODO: use
+		}
+		var args []string
+		for _, v := range req.Arguments["args"].([]any) {
+			args = append(args, v.(string))
+		}
+		// TODO: this isn't connecting to the debug adapter, for some reason...
+		if err = tmux.RunInPaneNoQuote(pane, args...); err != nil {
+			log.Printf("Failed to run in run-in-terminal tmux pane: %s", err)
+		}
+
+	default:
+		log.Printf("Unknown reverse request command: %s", req.Command)
 	}
 }
 

@@ -38,6 +38,15 @@ func SplitOutput() error {
 	})
 }
 
+func SplitRunInTerminal() error {
+	return runAll([][]string{
+		{"tmux", "select-pane", "-t", "right"},
+		{"tmux", "split-pane", "-p", "40", "-v"},
+		{"tmux", "select-pane", "-T", "run-in-terminal"},
+		{"tmux", "select-pane", "-t", "left"},
+	})
+}
+
 func FindOrSplitOutput() (string, error) {
 	if pane, err := FindPane("output"); err != nil {
 		return "", err
@@ -49,6 +58,19 @@ func FindOrSplitOutput() (string, error) {
 		return "", err
 	}
 	return FindPane("output")
+}
+
+func FindOrSplitRunInTerminal() (string, error) {
+	if pane, err := FindPane("run-in-terminal"); err != nil {
+		return "", err
+	} else if pane != "" {
+		return pane, nil
+	}
+
+	if err := SplitRunInTerminal(); err != nil {
+		return "", err
+	}
+	return FindPane("run-in-terminal")
 }
 
 // FindPane returns the id of the pane with the given title.
@@ -63,6 +85,13 @@ func RunInPane(pane string, args ...string) error {
 		// Not sure if this adheres to shell rules, but it seems to work okay.
 		args[i] = strconv.Quote(args[i])
 	}
+	tmuxArgs = append(tmuxArgs, strings.Join(args, " "))
+	tmuxArgs = append(tmuxArgs, "Enter")
+	return exec.Command("tmux", tmuxArgs...).Run()
+}
+
+func RunInPaneNoQuote(pane string, args ...string) error {
+	tmuxArgs := []string{"send-keys", "-t", pane}
 	tmuxArgs = append(tmuxArgs, strings.Join(args, " "))
 	tmuxArgs = append(tmuxArgs, "Enter")
 	return exec.Command("tmux", tmuxArgs...).Run()

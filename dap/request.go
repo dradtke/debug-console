@@ -10,11 +10,12 @@ import (
 
 func (p *Conn) Initialize() (types.Response, error) {
 	return p.SendRequest(types.NewInitializeRequest(types.InitializeArguments{
-		AdapterID:                    "debug-console",
-		PathFormat:                   "path",
-		LinesStartAt1:                true,
-		ColumnsStartAt1:              true,
-		SupportsRunInTerminalRequest: true,
+		AdapterID:                           "debug-console",
+		PathFormat:                          "path",
+		LinesStartAt1:                       true,
+		ColumnsStartAt1:                     true,
+		SupportsRunInTerminalRequest:        true,
+		SupportsArgsCanBeInterpretedByShell: true,
 	}))
 }
 

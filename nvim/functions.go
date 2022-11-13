@@ -2,6 +2,7 @@ package nvim
 
 import (
 	"errors"
+	"fmt"
 	"log"
 
 	"github.com/neovim/go-client/nvim"
@@ -22,7 +23,6 @@ func Run(d *dap.DAP) any {
 		if len(args) != 1 {
 			return errors.New("expected exactly one argument")
 		}
-		log.Print("Entered DebugConsoleRun()")
 		if _, err := d.Run(args[0], OnDapExit(v)); err != nil {
 			return err
 		}
@@ -50,7 +50,9 @@ func Launch(d *dap.DAP) any {
 
 		go func() {
 			if _, err := p.SendRequest(types.NewLaunchRequest(args[0])); err != nil {
-				log.Printf("Error executing launch request: %s", err)
+				errmsg := fmt.Sprintf("Error executing launch request: %s", err)
+				log.Println(errmsg)
+				Notify(v, errmsg, nvim.LogErrorLevel)
 				return
 			}
 

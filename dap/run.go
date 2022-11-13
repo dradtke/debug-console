@@ -18,46 +18,50 @@ type RunArgs struct {
 	// Command is expected when Type is 'subprocess'
 	Command    []string `msgpack:"command"`
 	DialClient bool     `msgpack:"dialClient"`
+	// Address is expected when Type is 'remote'
+	Address string `msgpack:"address"`
 }
 
 func (r RunArgs) Run(eventHandlers []types.EventHandler) (*Conn, error) {
+	conn := &Conn{
+		eventHandlers:        eventHandlers,
+		responseHandlers:     make(map[int64]chan<- types.Response),
+		initializedEventSeen: make(chan struct{}),
+		outDone:              make(chan struct{}),
+	}
 	switch r.Type {
 	case "subprocess":
-		return r.runSubprocess(eventHandlers)
+		return conn, r.runSubprocess(conn)
+	case "remote":
+		return conn, r.runRemote(conn)
 	default:
 		return nil, fmt.Errorf("unknown run type: %s", r.Type)
 	}
 }
 
-func (r RunArgs) runSubprocess(eventHandlers []types.EventHandler) (*Conn, error) {
-	cmd := exec.Command(r.Command[0], r.Command[1:]...)
-	conn := &Conn{
-		cmd:                  cmd,
-		eventHandlers:        eventHandlers,
-		responseHandlers:     make(map[int64]chan<- types.Response),
-		initializedEventSeen: make(chan struct{}),
-	}
+func (r RunArgs) runSubprocess(conn *Conn) error {
+	conn.cmd = exec.Command(r.Command[0], r.Command[1:]...)
 
 	if err := conn.pipeStreams(); err != nil {
-		return nil, err
+		return err
 	}
 
 	if r.DialClient {
-		go broadcastAsOutput("stdout", conn.out, eventHandlers)
-		go broadcastAsOutput("stderr", conn.err, eventHandlers)
+		go broadcastAsOutput("stdout", conn.out, conn.eventHandlers)
+		go broadcastAsOutput("stderr", conn.err, conn.eventHandlers)
 		if err := r.runConnectingSubprocess(conn); err != nil {
-			return nil, err
+			return err
 		}
 	} else {
 		log.Printf("Starting debug adapter with command: %s", strings.Join(conn.cmd.Args, " "))
 		if err := conn.cmd.Start(); err != nil {
-			return nil, err
+			return err
 		}
 		go conn.HandleOut()
 		go conn.HandleErr()
 	}
 
-	return conn, nil
+	return nil
 }
 
 func (r RunArgs) runConnectingSubprocess(conn *Conn) error {
@@ -92,6 +96,21 @@ func (r RunArgs) runConnectingSubprocess(conn *Conn) error {
 			go conn.HandleErr()
 		}
 	}()
+	return nil
+}
+
+func (r RunArgs) runRemote(conn *Conn) error {
+	log.Printf("Dialing %s", r.Address)
+	c, err := net.Dial("tcp", r.Address)
+	if err != nil {
+		return err
+	}
+	log.Println("Connected!")
+	conn.inMu.Lock()
+	defer conn.inMu.Unlock()
+	conn.out = c
+	conn.in = c
+	go conn.HandleOut()
 	return nil
 }
 

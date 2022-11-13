@@ -42,7 +42,7 @@ func (d *DAP) Run(args RunArgs, onExit func()) (conn *Conn, err error) {
 	alreadyRunning := d.Conn != nil
 	d.RUnlock()
 	if alreadyRunning {
-		return nil, errors.New("A debug adapter is already running")
+		return d.Conn, nil
 	}
 
 	log.Println("Starting debug adapter...")
@@ -59,23 +59,19 @@ func (d *DAP) Run(args RunArgs, onExit func()) (conn *Conn, err error) {
 				conn.Stop()
 			}
 		} else if err != nil && conn != nil {
+			log.Print(err)
 			log.Print("Stopping existing connection")
 			conn.Stop()
 		}
 	}()
 
 	d.Lock()
+	log.Print("Setting conn")
 	d.Conn = conn
 	d.Unlock()
 
 	go func() {
-		//defer util.LogPanic()
-		if err := conn.Wait(); err != nil {
-			// ???: Suppress this message if the adapter was killed by Neovim exiting?
-			log.Printf("Debug adapter exited with error: %s", err)
-		} else {
-			log.Print("Debug adapter exited")
-		}
+		<-conn.outDone
 		d.ClearProcess()
 		onExit()
 	}()

@@ -32,11 +32,12 @@ func newRequest(command string) request {
 }
 
 type InitializeArguments struct {
-	AdapterID                    string `json:"adapterID"`
-	PathFormat                   string `json:"pathFormat"`
-	LinesStartAt1                bool   `json:"linesStartAt1"`
-	ColumnsStartAt1              bool   `json:"columnsStartAt1"`
-	SupportsRunInTerminalRequest bool   `json:"supportsRunInTerminalRequest"`
+	AdapterID                           string `json:"adapterID"`
+	PathFormat                          string `json:"pathFormat"`
+	LinesStartAt1                       bool   `json:"linesStartAt1"`
+	ColumnsStartAt1                     bool   `json:"columnsStartAt1"`
+	SupportsRunInTerminalRequest        bool   `json:"supportsRunInTerminalRequest"`
+	SupportsArgsCanBeInterpretedByShell bool   `json:"supportsArgsCanBeInterpretedByShell"`
 }
 
 func NewInitializeRequest(args InitializeArguments) Request {
