@@ -18,6 +18,7 @@ M.launch = function(filepath, args)
 		arguments = { 'file://'..filepath, vim.fn.json_encode({ scope = 'test' }) },
 	}, function(err, result, ctx, config)
 		if err then error(err) end
+		-- See: https://github.com/microsoft/java-debug/blob/5bac075002154f2c8441a39026db53bdc67aef56/com.microsoft.java.debug.core/src/main/java/com/microsoft/java/debug/core/protocol/Requests.java#L104
 		vim.fn.DebugConsoleLaunch({
 			mainClass = 'Hello', -- TODO: this should be better
 			args = '',
@@ -26,6 +27,7 @@ M.launch = function(filepath, args)
 			cwd = result['projectRoot'],
 			projectName = vim.fn.fnamemodify(result['projectRoot'], ':t'),
 			shortenCommandLine = 'jarmanifest',
+			console = 'externalTerminal',
 		})
 	end)
 end

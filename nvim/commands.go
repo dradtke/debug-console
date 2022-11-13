@@ -18,7 +18,13 @@ func RegisterCommands(p *plugin.Plugin, d *dap.DAP) {
 	}, DebugRun(d))
 	p.HandleCommand(&plugin.CommandOptions{Name: "ToggleBreakpoint"}, ToggleBreakpoint(d))
 	p.HandleCommand(&plugin.CommandOptions{Name: "CurrentLocation"}, CurrentLocation(d))
+	//p.HandleCommand(&plugin.CommandOptions{Name: "DebugConsoleTest"}, Test)
 }
+
+//func Test(v *nvim.Nvim) error {
+//	log.Printf("escaped shell value: %s", ShellEscape(v)("hello world"))
+//	return nil
+//}
 
 func OnDapExit(v *nvim.Nvim) func() {
 	return func() {

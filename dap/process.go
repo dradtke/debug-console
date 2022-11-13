@@ -169,8 +169,7 @@ func (c *Conn) HandleReverseRequest(req types.ReverseRequest) {
 		for _, v := range req.Arguments["args"].([]any) {
 			args = append(args, v.(string))
 		}
-		// TODO: this isn't connecting to the debug adapter, for some reason...
-		if err = tmux.RunInPaneNoQuote(pane, args...); err != nil {
+		if err = tmux.RunInPane(pane, args...); err != nil {
 			log.Printf("Failed to run in run-in-terminal tmux pane: %s", err)
 		}
 

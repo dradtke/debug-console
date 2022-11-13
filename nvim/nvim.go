@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/dradtke/debug-console/dap"
+	"github.com/dradtke/debug-console/tmux"
 	"github.com/dradtke/debug-console/types"
 	"github.com/dradtke/debug-console/util"
 	"github.com/neovim/go-client/nvim"
@@ -111,6 +112,17 @@ func HandlePanic() {
 	}
 }
 
+func ShellEscape(v *nvim.Nvim) func(string) string {
+	return func(s string) string {
+		var escaped string
+		if err := v.ExecLua("return vim.fn.shellescape(...)", &escaped, s); err != nil {
+			log.Printf("Failed to escape shell command: %s", err)
+			return s
+		}
+		return escaped
+	}
+}
+
 func Main(exe string) error {
 	if os.Getenv("NVIM") != "" {
 		if err := setLogOutput(); err != nil {
@@ -123,6 +135,8 @@ func Main(exe string) error {
 	}
 
 	plugin.Main(func(p *plugin.Plugin) error {
+		tmux.ShellEscapeFunc = ShellEscape(p.Nvim)
+
 		d.EditorEventHandler = HandleEvent(p.Nvim, d) // this feels weird to do
 		p.HandleAutocmd(&plugin.AutocmdOptions{Event: "VimLeave", Pattern: "*"}, d.Stop)
 		RegisterCommands(p, d)

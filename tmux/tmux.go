@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+// ShellEscapeFunc defines the function to use for escaping shell commands. It
+// uses strconv.Quote() by default, but can be overridden with an
+// editor-specific function.
+var ShellEscapeFunc = strconv.Quote
+
 func NumPanes() (int, error) {
 	b, err := exec.Command("tmux", "display-message", "-p", "#{window_panes}").Output()
 	if err != nil {
@@ -82,16 +87,8 @@ func FindPane(title string) (string, error) {
 func RunInPane(pane string, args ...string) error {
 	tmuxArgs := []string{"send-keys", "-t", pane}
 	for i := range args {
-		// Not sure if this adheres to shell rules, but it seems to work okay.
-		args[i] = strconv.Quote(args[i])
+		args[i] = ShellEscapeFunc(args[i])
 	}
-	tmuxArgs = append(tmuxArgs, strings.Join(args, " "))
-	tmuxArgs = append(tmuxArgs, "Enter")
-	return exec.Command("tmux", tmuxArgs...).Run()
-}
-
-func RunInPaneNoQuote(pane string, args ...string) error {
-	tmuxArgs := []string{"send-keys", "-t", pane}
 	tmuxArgs = append(tmuxArgs, strings.Join(args, " "))
 	tmuxArgs = append(tmuxArgs, "Enter")
 	return exec.Command("tmux", tmuxArgs...).Run()
