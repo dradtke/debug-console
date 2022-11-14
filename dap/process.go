@@ -16,7 +16,7 @@ import (
 	"github.com/dradtke/debug-console/util"
 )
 
-const VerboseLogging = true
+const VerboseLogging = false
 
 type Conn struct {
 	cmd                  *exec.Cmd

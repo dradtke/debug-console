@@ -225,6 +225,7 @@ func (d *DAP) HandleStopped(stopped types.StoppedEvent) (*types.StackFrame, erro
 	stackFrame := body.StackFrames[0]
 	d.Lock()
 	d.StoppedLocation = &stackFrame
+	log.Printf("Stopped at: %+v", d.StoppedLocation)
 	d.Unlock()
 	return &stackFrame, nil
 }

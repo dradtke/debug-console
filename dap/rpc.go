@@ -27,6 +27,9 @@ func (r DAPService) Next(granularity string, _ *struct{}) error {
 }
 
 func (r DAPService) Evaluate(args types.EvaluateArguments, result *string) error {
+	if r.d.StoppedLocation != nil {
+		args.FrameID = r.d.StoppedLocation.ID
+	}
 	v, err := r.d.Conn.Evaluate(args)
 	if err != nil {
 		return err

@@ -26,7 +26,11 @@ func (p *Conn) ConfigurationDone() (types.Response, error) {
 func (d *DAP) Continue() error {
 	d.Lock()
 	defer d.Unlock()
-	_, err := d.Conn.SendRequest(types.NewContinueRequest())
+	args := types.ContinueArguments{}
+	if d.StoppedLocation != nil {
+		args.ThreadID = d.StoppedThreadID
+	}
+	_, err := d.Conn.SendRequest(types.NewContinueRequest(args))
 	if err == nil {
 		d.StoppedLocation = nil
 	}

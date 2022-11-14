@@ -50,8 +50,18 @@ func NewConfigurationDoneRequest() Request {
 	return newRequest("configurationDone")
 }
 
-func NewContinueRequest() Request {
-	return newRequest("continue")
+type ContinueArguments struct {
+	ThreadID int `json:"threadId,omitempty"`
+}
+
+func NewContinueRequest(args ContinueArguments) Request {
+	return struct {
+		request
+		Arguments ContinueArguments `json:"arguments"`
+	}{
+		request:   newRequest("continue"),
+		Arguments: args,
+	}
 }
 
 func NewStepInRequest() Request {
@@ -73,6 +83,7 @@ func NewThreadsRequest() Request {
 type EvaluateArguments struct {
 	Expression string `json:"expression"`
 	Context    string `json:"context,omitempty"`
+	FrameID    int    `json:"frameId,omitempty"`
 }
 
 func NewEvaluateRequest(args EvaluateArguments) Request {
